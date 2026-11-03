@@ -1,121 +1,195 @@
-# AC — OpenWrt AC/AP 组网工具
+# luci-app-mesh-lite
 
-本目录存放"用 OpenWrt 自己做 AC + AP 统一配置"这一方案的文档与代码。
+[![Build ipk and apk](https://github.com/Lemonade-22/luci-app-mesh-lite/actions/workflows/build.yml/badge.svg)](https://github.com/Lemonade-22/luci-app-mesh-lite/actions/workflows/build.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-## 这是什么
+LuCI application that turns a plain OpenWrt box into a small **AC + AP** controller:
+one place to define SSID, security and roaming parameters, push them to stock OpenWrt APs,
+and read back what the APs actually run.
 
-一个 LuCI 应用（`luci-app-mesh-lite`），目标是：
+It deliberately does **not** implement EasyMesh/Multi-AP. It uses the standard
+802.11k / 802.11v / 802.11r support that `hostapd` already provides, and adds the
+configuration glue that OpenWrt lacks.
 
-- 在一个界面里选择 **AC / AP 角色**；
-- 统一配置 **SSID / 密钥 / 加密 / 信道 / 功率 / Beacon**；
-- 正确打开 **802.11k / 802.11v / 802.11r（FT）** 并保证 **mobility_domain 全屋一致**；
-- 用 **凭据阶梯**（预置密钥 → 默认凭据 → 统一凭据 → 单台覆盖）批量接管 AP；
-- AC 通过 SSH 巡检各 AP 的**期望配置 vs 实际运行态**；
-- 节点列表支持**点击直达** AP 后台 / 复制凭据 / SSH 终端。
+> **Status: pre-release.** All five pages and the rpcd backend are implemented and covered by
+> 56 local unit tests, but nothing has been validated on real hardware yet. See
+> [STATUS.md](STATUS.md) for the current state.
 
-**它不做什么**：不实现 EasyMesh / Multi-AP 协议，不做毫秒级上报，不做自动 steering，不碰 802.11s。
+---
 
-## 目录
+## Features
 
-```
-ac/
-├── DESIGN.md                     设计方案（架构、凭据阶梯、接口、里程碑）
-├── STATUS.md                     阶段性总结（进度、验证、风险、下一步）
-├── README.md                     本文件
-└── luci-app-mesh-lite/           LuCI 应用
-    ├── Makefile
-    ├── root/                     安装到设备的文件
-    │   ├── etc/config/mesh_lite           UCI 配置
-    │   ├── etc/uci-defaults/90-mesh-lite  首次启动建目录
-    │   ├── usr/share/luci/menu.d/         菜单
-    │   ├── usr/share/rpcd/acl.d/          权限
-    │   └── usr/libexec/rpcd/mesh-lite     rpcd 后端（shell）
-    └── htdocs/luci-static/resources/view/mesh-lite/
-        └── overview.js            总览页
-```
+- **Five LuCI pages** — Quick Setup, Overview, Configuration Profile, Nodes, Inspect.
+- **One template for the whole network** — SSID, password, encryption, beacon, 2.4G/5G channel,
+  tx power and bandwidth, 802.11r/k/v, FT-over-DS, locally generated PMK.
+- **Mobility domain derived from the SSID** (djb2, low 16 bits), so every AP computes the same
+  value without the operator having to understand what a mobility domain is. Manual override
+  available.
+- **Quick Setup wizard** — fill in SSID and password only; every advanced value has an automatic
+  default and can be overridden. It writes the template, it never pushes on its own.
+- **Credential ladder for AP onboarding** — existing key → per-node stored credential →
+  common default credentials (`root` with empty password, `root`, `password`, `admin`, …) →
+  one unified password for all nodes. `sshpass` is only needed for the password steps.
+- **Split apply button** — *Apply to template and restart AP radios* by default; hover the arrow
+  to also apply on this device (useful when the AC also has radios).
+- **Serial inspection** — reads each AP over SSH one at a time (never in parallel), compares the
+  actual configuration with the template, and highlights differences. Designed for small
+  4×A53 boxes.
+- **SSH key management** — one-click ed25519 key generation (dropbear-compatible), optional
+  `from="LAN"` restriction, optional disabling of password login on an AP.
+- **Architecture independent** — LuCI JS + JSON + one POSIX shell rpcd plugin. `Architecture: all`.
+- **Bilingual** — Chinese is the source language; install `luci-i18n-mesh-lite-en` for English.
 
-## 当前进度
+---
 
-| 里程碑 | 内容 | 状态 |
-|---|---|---|
-| M1 | 包骨架、UCI、菜单/ACL、rpcd（status/discover/genkey/getkey）、总览页 | ✅ 已完成（未上机验证） |
-| M2 | 配置模板页、生成 hostapd 参数、本地应用与回读 | ✅ 已完成（未上机） |
-| M2.1 | 一键配置向导、射频读数、分体式应用按钮、本机无线读取 | ✅ 已完成（26 项单测通过） |
-| M3 | 节点页、凭据阶梯、secrets 管理、AP 下发、SSH 超时保护 | ✅ 已完成（45 项单测通过） |
-| M4 | 巡检页（串行拉取 + 期望/实际差异对比） | ✅ 已完成（55 项单测通过） |
-| M5 | 英文翻译包、profile 导入、加固（关密码登录） | ✅ 已完成（56 项单测通过） |
-| M3 | 节点页、凭据阶梯（probe/push/verify/forget）、secrets | ⬜ |
-| M4 | 巡检页（SSH 拉取 + 差异对比）、点击直达 | ⬜ |
-| M5 | 中文文案、导入导出、加固选项 | ⬜ |
+## Requirements
 
-## 构建
+| Item | Notes |
+| --- | --- |
+| OpenWrt 21.02 or newer | LuCI client-side JS views are required (19.07 and older are not supported) |
+| `luci-base`, `rpcd`, `dropbear` | Pulled in as package dependencies |
+| **full wpad** | `wpad-openssl` / `wpad-wolfssl` / `wpad-mbedtls`. The default `wpad-basic` has no 802.11r; the Overview page detects this and reports it |
+| `sshpass` (optional) | Needed to automate the first password-based authorization |
+| `timeout` (optional) | Used to cap SSH calls; without it a dead AP can block the request |
+| firewall | Works with both fw3 and fw4 — the app installs **no firewall rules** |
 
-把 `luci-app-mesh-lite` 放进 OpenWrt 源码的 `package/` 下：
+---
+
+## Installation
+
+### Prebuilt packages (GitHub Releases)
+
+Every push to `main` builds both formats and publishes its own release
+(tag `v<version>-r<release>-<UTC date>-run<number>`).
+
+| File | Target |
+| --- | --- |
+| `luci-app-mesh-lite_*_all.ipk` | OpenWrt 24.10 and older (opkg) |
+| `luci-i18n-mesh-lite-en_*_all.ipk` | English UI (opkg) |
+| `luci-app-mesh-lite-*.apk` | OpenWrt snapshot / 25.x (apk) |
+| `luci-i18n-mesh-lite-en-*.apk` | English UI (apk) |
+
+All packages are `Architecture: all` — one file serves every device.
 
 ```sh
-cp -r ac/luci-app-mesh-lite openwrt/package/
+# opkg (24.10 and older)
+opkg install luci-app-mesh-lite_*_all.ipk
+opkg install luci-i18n-mesh-lite-en_*_all.ipk   # optional, English UI
+
+# apk (snapshot / 25.x); the SDK signing key is not published, hence --allow-untrusted
+apk add --allow-untrusted luci-app-mesh-lite-*.apk
+apk add --allow-untrusted luci-i18n-mesh-lite-en-*.apk
+```
+
+### From source
+
+```sh
+cp -r luci-app-mesh-lite openwrt/package/
 cd openwrt
-make menuconfig          # LuCI -> Applications -> luci-app-mesh-lite
+make menuconfig          # LuCI → Applications → luci-app-mesh-lite
 make package/luci-app-mesh-lite/compile V=s
 ```
 
-依赖：`luci-base`、`rpcd`、`dropbear`；**802.11r 还需要满血 wpad**（`wpad-openssl` / `wpad-wolfssl` / `wpad-mbedtls`），否则总览页会标红。
+Reload LuCI after installing; the menu appears under **Network → Mesh Lite**.
 
-英文界面需要额外安装翻译包：`opkg install luci-i18n-mesh-lite-en`（apk 环境用 `apk add --allow-untrusted luci-i18n-mesh-lite-en-*.apk`）。
+---
 
-## 平台与格式兼容
+## Quick start
 
-| 维度 | 支持情况 | 说明 |
-|---|---|---|
-| OpenWrt 21.02 / 22.03 / 23.05 | ✅ ipk（opkg） | LuCI 客户端 JS 视图 + POSIX shell 插件 |
-| OpenWrt 24.10 | ✅ ipk | CI 用 24.10 SDK 构建 |
-| OpenWrt snapshot / 25.x | ✅ apk | CI 用 snapshot SDK 构建，安装需 `--allow-untrusted` |
-| ImmortalWrt / LEDE | ✅ 视版本 | 跟随其 opkg / apk 体系 |
-| 架构 | ✅ 全部 | `Architecture: all`，无编译产物 |
-| 防火墙 | ✅ fw3 / fw4 | **不安装任何防火墙规则**，只在 LAN 内用 SSH，天然兼容 fw4 |
+1. **Overview** — choose the role (`AC`, `AP`, `Standalone`), check that a full `wpad` is
+   installed, and press **Generate SSH key**.
+2. **Nodes** — scan the LAN (or add IPs manually), then **Authorize** each AP. The ladder tries
+   the key, then common default credentials, then asks for a password. **Take over all nodes**
+   applies one password to every node.
+3. **Quick Setup** — fill in SSID and password. Advanced fields show what will be generated
+   (mobility domain, 802.11r per band, 802.11k/v, FT-over-DS, beacon) and can be overridden.
+   This step only writes the template.
+4. **Configuration Profile** — review, then **Apply to template and restart AP radios**.
+   Hover the arrow for *Apply to template and restart local and AP radios* when this device
+   also broadcasts Wi-Fi.
+5. **Inspect** — read every AP back, one by one, and check the expected-vs-actual table.
 
-**说明**
+---
 
-- 插件只包含 LuCI JS/JSON、一个 POSIX sh 的 rpcd 脚本和 UCI 配置，没有 C 代码、没有内核模块，因此一个包通吃 x86 / aarch64 / arm / mips / mipsel。
-- 双格式不是"一份包两种格式"，而是 CI 用两个 SDK 各构建一次：24.10 SDK 产出 `.ipk`，snapshot SDK 产出 `.apk`。
-- fw3/fw4 只影响系统内的防火墙实现；本插件不动防火墙，也不需要放行端口。若将来要跨 zone 管理，应通过 UCI `firewall` 配置（fw4 读取同一份配置），而不是写 iptables 规则。
-- LuCI 19.07 及更早使用 Lua 控制器，本插件不支持。
+## How it works
 
-## 本地静态检查
-
-```sh
-sh -n ac/luci-app-mesh-lite/root/usr/libexec/rpcd/mesh-lite
-sh -n ac/luci-app-mesh-lite/root/etc/uci-defaults/90-mesh-lite
-sh ac/tests/helpers-test.sh          # rpcd 纯 shell 逻辑的单元测试
+```
+AC (OpenWrt)                                   AP (stock OpenWrt)
+────────────                                   ──────────────────
+LuCI pages ── ubus ── rpcd plugin              dropbear + authorized_keys
+                          │                         │
+                          ├── uci  /etc/config/mesh_lite    (template)
+                          ├── uci  /etc/config/wireless    (local radios)
+                          └── ssh ────────────────────────► sh -s (base64 script)
+                                     │                        uci set …; wifi reload
+                                     └── poll ─────────────► uci show wireless / iwinfo
 ```
 
-JSON 文件（菜单、ACL）可用任意 JSON 解析器校验，例如：
+- The AP needs **nothing installed** — only SSH reachability and the AC public key.
+- Both directions use the same SSH channel: `apply_nodes` pushes the template, `poll` reads it
+  back. Values are base64-encoded before being embedded in the remote script, so quotes, spaces
+  and backslashes in an SSID or password cannot break it.
+- 802.11r is enabled on 5 GHz by default and left off on 2.4 GHz (it tends to flap there).
+- The template never touches channel, tx power or bandwidth unless you fill those fields in.
+
+---
+
+## Compatibility
+
+| Dimension | Support |
+| --- | --- |
+| Architecture | all (`Architecture: all`, no compiled code) |
+| OpenWrt 21.02–24.10 | ipk (opkg) |
+| OpenWrt snapshot / 25.x | apk |
+| ImmortalWrt / LEDE | follows their opkg/apk format |
+| Firewall | fw3 and fw4 (no rules installed) |
+| LuCI 19.07 and older | not supported |
+
+---
+
+## Notes & limitations
+
+- **No EasyMesh / Multi-AP.** Configuration is centralized, but this is not an interoperable
+  EasyMesh controller; you cannot mix it with vendor EasyMesh gear.
+- **No agent on the AP.** Configuration is pulled over SSH, so the AP must keep dropbear enabled.
+- **Opening an AP's LuCI cannot auto-login.** Cross-origin restrictions prevent it; the Nodes page
+  opens the page in a new tab and keeps the credentials next to it.
+- **`harden` disables SSH password login on the AP.** Only use it after confirming key login
+  works, otherwise you can lock yourself out.
+- **SSH calls are capped** by `ssh_timeout` (default 10 s). A batch over many offline nodes can
+  still take `10 s × nodes`.
+- **Not yet validated on hardware.** LuCI rendering, real `hostapd` read-back and SSH
+  authorization all still need a device pass.
+
+---
+
+## Development
 
 ```sh
-python3 -m json.tool ac/luci-app-mesh-lite/root/usr/share/luci/menu.d/*.json
-python3 -m json.tool ac/luci-app-mesh-lite/root/usr/share/rpcd/acl.d/*.json
+# local checks (no OpenWrt device needed)
+sh -n luci-app-mesh-lite/root/usr/libexec/rpcd/mesh-lite
+bash -n Scripts/ci-build.sh
+sh tests/helpers-test.sh        # 56 unit tests with command stubs
+
+# build both formats locally with the official OpenWrt SDK
+bash Scripts/ci-build.sh ipk   https://downloads.openwrt.org/releases/24.10.0/targets/x86/64/
+bash Scripts/ci-build.sh apk   https://downloads.openwrt.org/snapshots/targets/x86/64/
 ```
 
-提交前确认两个脚本有可执行位：
-
-```sh
-chmod +x ac/luci-app-mesh-lite/root/usr/libexec/rpcd/mesh-lite
-chmod +x ac/luci-app-mesh-lite/root/etc/uci-defaults/90-mesh-lite
+```
+.
+├── DESIGN.md                     architecture, credential ladder, interfaces, milestones
+├── STATUS.md                     current state, verification, known risks
+├── Scripts/ci-build.sh           SDK build script (ipk/apk)
+├── luci-app-mesh-lite/           the package
+│   ├── root/                     UCI, menu, ACL, rpcd plugin
+│   ├── htdocs/…/mesh-lite/       five LuCI views
+│   └── po/                       English translation + template
+└── tests/                        unit tests and command stubs
 ```
 
-## 上机验证清单（M1）
+---
 
-1. 安装后菜单出现 "网络 → Mesh Lite"；
-2. 总览页能显示 wpad 变体、是否满血、sshpass、角色、LAN IP；
-3. 点【一键生成 SSH 密钥】后出现公钥与指纹，刷新后仍在；
-4. 修改角色并保存，`uci get mesh_lite.general.role` 能读到。
+## License
 
-## 已知限制
-
-- 跨源限制导致"打开 AP 后台后自动登录"做不到，只能复制凭据或用 ttyd 终端。
-- 不同驱动的 `iwinfo` 字段有差异，巡检页需要做字段兼容（M4）。
-- `dropbear` 与 `openssh` 的 `authorized_keys` 路径不同，M3 需同时兼容。
-
-## 许可证
-
-Apache-2.0（与作者既有 `luci-app-static-gw` 保持一致）。
+Apache-2.0. See [LICENSE](LICENSE).
