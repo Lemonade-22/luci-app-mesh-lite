@@ -38,7 +38,7 @@ configuration glue that OpenWrt lacks.
 - **SSH key management** — one-click ed25519 key generation (dropbear-compatible), optional
   `from="LAN"` restriction, optional disabling of password login on an AP.
 - **Architecture independent** — LuCI JS + JSON + one POSIX shell rpcd plugin. `Architecture: all`.
-- **Bilingual** — Chinese is the source language; install `luci-i18n-mesh-lite-en` for English.
+- **Bilingual** — English is the source language; install `luci-i18n-mesh-lite-zh-cn` for the Chinese UI.
 
 ---
 
@@ -65,20 +65,20 @@ Every push to `main` builds both formats and publishes its own release
 | File | Target |
 | --- | --- |
 | `luci-app-mesh-lite_*_all.ipk` | OpenWrt 24.10 and older (opkg) |
-| `luci-i18n-mesh-lite-en_*_all.ipk` | English UI (opkg) |
+| `luci-i18n-mesh-lite-zh-cn_*_all.ipk` | Chinese UI (opkg) |
 | `luci-app-mesh-lite-*.apk` | OpenWrt snapshot / 25.x (apk) |
-| `luci-i18n-mesh-lite-en-*.apk` | English UI (apk) |
+| `luci-i18n-mesh-lite-zh-cn-*.apk` | Chinese UI (apk) |
 
 All packages are `Architecture: all` — one file serves every device.
 
 ```sh
 # opkg (24.10 and older)
 opkg install luci-app-mesh-lite_*_all.ipk
-opkg install luci-i18n-mesh-lite-en_*_all.ipk   # optional, English UI
+opkg install luci-i18n-mesh-lite-zh-cn_*_all.ipk  # optional, Chinese UI
 
 # apk (snapshot / 25.x); the SDK signing key is not published, hence --allow-untrusted
 apk add --allow-untrusted luci-app-mesh-lite-*.apk
-apk add --allow-untrusted luci-i18n-mesh-lite-en-*.apk
+apk add --allow-untrusted luci-i18n-mesh-lite-zh-cn-*.apk
 ```
 
 ### From source
@@ -184,7 +184,7 @@ bash Scripts/ci-build.sh apk   https://downloads.openwrt.org/snapshots/targets/x
 ├── luci-app-mesh-lite/           the package
 │   ├── root/                     UCI, menu, ACL, rpcd plugin
 │   ├── htdocs/…/mesh-lite/       five LuCI views
-│   └── po/                       English translation + template
+│   └── po/                       Chinese translation + template
 └── tests/                        unit tests and command stubs
 ```
 

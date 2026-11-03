@@ -56,27 +56,27 @@ function computeEffective() {
 
 function renderEffectiveTable(eff) {
 	var rows = [E('tr', { 'class': 'tr table-titles' }, [
-		E('th', { 'class': 'th' }, _('项目')),
-		E('th', { 'class': 'th' }, _('将写入模板的值')),
-		E('th', { 'class': 'th' }, _('来源'))
+		E('th', { 'class': 'th' }, _('Item')),
+		E('th', { 'class': 'th' }, _('Values to write into the template')),
+		E('th', { 'class': 'th' }, _('Source'))
 	])];
 
 	function row(name, value, explicit) {
 		rows.push(E('tr', { 'class': 'tr' }, [
 			E('td', { 'class': 'td' }, name),
 			E('td', { 'class': 'td' }, value),
-			E('td', { 'class': 'td' }, explicit ? _('已指定') : _('自动'))
+			E('td', { 'class': 'td' }, explicit ? _('Overridden') : _('Auto'))
 		]));
 	}
 
-	row(_('移动域（MD）'), eff.md, eff.mdExplicit);
-	row(_('802.11r（5G）'), eff.r5 ? _('开启') : _('关闭'), false);
-	row(_('802.11r（2.4G）'), eff.r2 ? _('开启') : _('关闭'), false);
-	row(_('802.11k'), eff.k ? _('开启') : _('关闭'), false);
-	row(_('802.11v'), eff.v ? _('开启') : _('关闭'), false);
-	row(_('FT over DS'), eff.ds ? _('开启') : _('关闭'), false);
-	row(_('本地生成 PMK'), eff.local ? _('开启') : _('关闭'), false);
-	row(_('Beacon 间隔'), eff.beacon + ' ms', eff.beaconExplicit);
+	row(_('Mobility domain (MD)'), eff.md, eff.mdExplicit);
+	row(_('802.11r (5G)'), eff.r5 ? _('Enable') : _('Disable'), false);
+	row(_('802.11r (2.4G)'), eff.r2 ? _('Enable') : _('Disable'), false);
+	row(_('802.11k'), eff.k ? _('Enable') : _('Disable'), false);
+	row(_('802.11v'), eff.v ? _('Enable') : _('Disable'), false);
+	row(_('FT over DS'), eff.ds ? _('Enable') : _('Disable'), false);
+	row(_('Generate PMK locally'), eff.local ? _('Enable') : _('Disable'), false);
+	row(_('Beacon interval'), eff.beacon + ' ms', eff.beaconExplicit);
 
 	return E('table', { 'class': 'table' }, rows);
 }
@@ -84,13 +84,13 @@ function renderEffectiveTable(eff) {
 function renderRadioTable(radios) {
 	if (!radios.length)
 		return E('p', { 'class': 'cbi-section-descr' },
-			_('没有检测到射频。若这台设备只当 AC，这是正常的。'));
+			_('No radios detected. This is normal if this device only acts as an AC.'));
 
 	var rows = [E('tr', { 'class': 'tr table-titles' }, [
-		E('th', { 'class': 'th' }, _('射频')),
-		E('th', { 'class': 'th' }, _('频段')),
-		E('th', { 'class': 'th' }, _('当前信道')),
-		E('th', { 'class': 'th' }, _('当前功率（驱动默认）'))
+		E('th', { 'class': 'th' }, _('Radio')),
+		E('th', { 'class': 'th' }, _('Band')),
+		E('th', { 'class': 'th' }, _('Current channel')),
+		E('th', { 'class': 'th' }, _('Current tx power (driver default)'))
 	])];
 
 	radios.forEach(function(r) {
@@ -98,7 +98,7 @@ function renderRadioTable(radios) {
 			E('td', { 'class': 'td' }, r.name || '-'),
 			E('td', { 'class': 'td' }, r.band || '-'),
 			E('td', { 'class': 'td' }, r.cur_channel || r.channel || '-'),
-			E('td', { 'class': 'td' }, r.cur_txpower ? (r.cur_txpower + ' dBm') : _('由驱动决定'))
+			E('td', { 'class': 'td' }, r.cur_txpower ? (r.cur_txpower + ' dBm') : _('Determined by driver'))
 		]));
 	});
 
@@ -143,13 +143,13 @@ return view.extend({
 			var key = uci.get('mesh_lite', 'profile', 'key') || '';
 
 			if (!eff.ssid) {
-				ui.addNotification(null, E('p', {}, _('请先填写 SSID。')), 'danger');
+				ui.addNotification(null, E('p', {}, _('Please fill in the SSID first.')), 'danger');
 				return false;
 			}
 
 			if (enc !== 'none' && key.length < 8) {
 				ui.addNotification(null, E('p', {},
-					_('WPA 密码至少 8 位；开放网络请把加密方式设为 none。')), 'danger');
+					_('WPA password must be at least 8 characters; use encryption "none" for an open network.')), 'danger');
 				return false;
 			}
 
@@ -174,20 +174,20 @@ return view.extend({
 				if (box) {
 					box.innerHTML = '';
 					box.appendChild(E('p', { 'style': 'font-weight:bold;color:#2e7d32' },
-						_('模板已保存：SSID %s，移动域 %s').format(eff.ssid, eff.md)));
+						_('Template saved: SSID %s, mobility domain %s').format(eff.ssid, eff.md)));
 					box.appendChild(E('p', { 'class': 'cbi-section-descr' },
-						_('下发不会自动发生。请到“配置模板”页，用【应用到模板并重启 AP 无线】或【应用到模板并重启本机和 AP 无线】执行。')));
+						_('Nothing is pushed automatically. Go to the Configuration Profile page and use "Apply to template and restart AP radios" or the split-button alternative.')));
 					box.appendChild(E('a', {
 						'class': 'btn cbi-button cbi-button-apply',
 						'href': '#/admin/network/mesh-lite/profile'
-					}, _('前往配置模板页应用')));
+					}, _('Open Configuration Profile to apply')));
 				}
 
-				ui.addNotification(null, E('p', {}, _('模板已保存，尚未下发。')), 'info');
+				ui.addNotification(null, E('p', {}, _('Template saved, not pushed yet.')), 'info');
 				return true;
 			});
 		}).catch(function(err) {
-			ui.addNotification(null, E('p', {}, _('保存失败：%s').format(err)), 'danger');
+			ui.addNotification(null, E('p', {}, _('Save failed: %s').format(err)), 'danger');
 			return false;
 		});
 	},
@@ -197,10 +197,10 @@ return view.extend({
 		var radios = radio.radios || [];
 		var eff = computeEffective();
 
-		var m = new form.Map('mesh_lite', _('一键配置'),
-			_('只生成模板，不下发。最少填 SSID 与密码；高级项留空即自动生成。保存后到“配置模板”页执行下发。'));
+		var m = new form.Map('mesh_lite', _('Quick setup'),
+			_('Generates the template only, no push. Fill in SSID and password; advanced fields left empty are generated automatically. Apply from the Configuration Profile page afterwards.'));
 
-		var s = m.section(form.TypedSection, 'profile', _('基本信息'));
+		var s = m.section(form.TypedSection, 'profile', _('Basic settings'));
 		s.anonymous = true;
 		s.addremove = false;
 
@@ -208,83 +208,83 @@ return view.extend({
 		o.rmempty = false;
 		o.placeholder = 'Home';
 
-		o = s.option(form.Value, 'key', _('密码'),
-			_('开放网络请把加密方式设为 none。'));
+		o = s.option(form.Value, 'key', _('Password'),
+			_('For an open network, set encryption to none.'));
 		o.password = true;
 
-		o = s.option(form.ListValue, 'encryption', _('加密方式'));
+		o = s.option(form.ListValue, 'encryption', _('Encryption'));
 		o.value('psk2', 'WPA2-PSK (CCMP)');
 		o.value('psk-mixed', 'WPA/WPA2-PSK 混合');
 		o.value('sae', 'WPA3-SAE');
 		o.value('sae-mixed', 'WPA2/WPA3 混合');
-		o.value('none', _('开放（无密码）'));
+		o.value('none', _('Open (no password)'));
 
-		var w = m.section(form.TypedSection, 'wizard', _('高级（留空即自动）'),
-			_('这些项不填就按默认规则生成；填了以填写值为准。'));
+		var w = m.section(form.TypedSection, 'wizard', _('Advanced (empty = automatic)'),
+			_('Leave these empty to use the default rules; filled values take precedence.'));
 		w.anonymous = true;
 		w.addremove = false;
 
-		o = w.option(form.Value, 'mobility_domain', _('移动域（MD）'),
-			_('留空则由 SSID 派生。'));
-		o.placeholder = eff.md + _('（自动）');
+		o = w.option(form.Value, 'mobility_domain', _('Mobility domain (MD)'),
+			_('Leave empty to derive from the SSID.'));
+		o.placeholder = eff.md + _('(auto)');
 		o.validate = function(section_id, value) {
 			if (!value)
 				return true;
 			if (!/^[0-9a-fA-F]{4}$/.test(value))
-				return _('移动域必须是 4 位十六进制，例如 a1b2');
+				return _('Mobility domain must be four hex digits, e.g. a1b2');
 			return true;
 		};
 
-		o = w.option(form.ListValue, 'enable_r_5g', _('802.11r（5G）'));
-		o.value('', _('自动（开启）'));
-		o.value('1', _('强制开启'));
-		o.value('0', _('强制关闭'));
+		o = w.option(form.ListValue, 'enable_r_5g', _('802.11r (5G)'));
+		o.value('', _('Auto (on)'));
+		o.value('1', _('Force on'));
+		o.value('0', _('Force off'));
 
-		o = w.option(form.ListValue, 'enable_r_2g', _('802.11r（2.4G）'));
-		o.value('', _('自动（关闭）'));
-		o.value('1', _('强制开启'));
-		o.value('0', _('强制关闭'));
+		o = w.option(form.ListValue, 'enable_r_2g', _('802.11r (2.4G)'));
+		o.value('', _('Auto (off)'));
+		o.value('1', _('Force on'));
+		o.value('0', _('Force off'));
 
 		o = w.option(form.ListValue, 'enable_k', _('802.11k'));
-		o.value('', _('自动（开启）'));
-		o.value('1', _('强制开启'));
-		o.value('0', _('强制关闭'));
+		o.value('', _('Auto (on)'));
+		o.value('1', _('Force on'));
+		o.value('0', _('Force off'));
 
 		o = w.option(form.ListValue, 'enable_v', _('802.11v'));
-		o.value('', _('自动（开启）'));
-		o.value('1', _('强制开启'));
-		o.value('0', _('强制关闭'));
+		o.value('', _('Auto (on)'));
+		o.value('1', _('Force on'));
+		o.value('0', _('Force off'));
 
 		o = w.option(form.ListValue, 'ft_over_ds', _('FT over DS'));
-		o.value('', _('自动（开启）'));
-		o.value('1', _('强制开启'));
-		o.value('0', _('强制关闭'));
+		o.value('', _('Auto (on)'));
+		o.value('1', _('Force on'));
+		o.value('0', _('Force off'));
 
-		o = w.option(form.ListValue, 'ft_psk_generate_local', _('本地生成 PMK'));
-		o.value('', _('自动（开启）'));
-		o.value('1', _('强制开启'));
-		o.value('0', _('强制关闭'));
+		o = w.option(form.ListValue, 'ft_psk_generate_local', _('Generate PMK locally'));
+		o.value('', _('Auto (on)'));
+		o.value('1', _('Force on'));
+		o.value('0', _('Force off'));
 
-		o = w.option(form.Value, 'beacon', _('Beacon 间隔（ms）'),
-			_('留空则为 100。'));
-		o.placeholder = '100' + _('（自动）');
+		o = w.option(form.Value, 'beacon', _('Beacon interval (ms)'),
+			_('Leave empty for 100.'));
+		o.placeholder = '100' + _('(auto)');
 		o.datatype = 'uinteger';
 
 		this.map = m;
 
 		return m.render().then(function(node) {
 			node.appendChild(E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, _('模板将写入的值')),
+				E('h3', {}, _('Values written into the template')),
 				E('div', { 'id': 'mesh-lite-effective' }, [ renderEffectiveTable(eff) ]),
 				E('p', { 'class': 'cbi-section-descr' },
-					_('留空的项按“自动”取值；填写覆盖值后这里会显示“已指定”。'))
+					_('Empty fields use the automatic value; filled fields show as overridden here.'))
 			]));
 
 			node.appendChild(E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, _('射频现状（本页不会修改）')),
+				E('h3', {}, _('Radio status (not modified by this page)')),
 				renderRadioTable(radios),
 				E('p', { 'class': 'cbi-section-descr' },
-					_('信道与功率始终由驱动和现有配置决定；需要精确控制请到“配置模板”页。'))
+					_('Channel and tx power are controlled by the driver and existing configuration; use the Configuration Profile page for precise control.'))
 			]));
 
 			node.appendChild(E('div', { 'class': 'cbi-section' }, [
@@ -292,15 +292,15 @@ return view.extend({
 					E('button', {
 						'class': 'btn cbi-button cbi-button-apply',
 						'click': this.saveTemplate.bind(this)
-					}, _('一键生成模板')),
+					}, _('Generate template')),
 					E('button', {
 						'class': 'btn cbi-button cbi-button-neutral',
 						'click': this.resetWizard.bind(this)
-					}, _('恢复全自动')),
+					}, _('Reset to fully automatic')),
 					E('a', {
 						'class': 'btn cbi-button',
 						'href': '#/admin/network/mesh-lite/profile'
-					}, _('前往配置模板'))
+					}, _('Open Configuration Profile'))
 				]),
 				E('div', { 'id': 'mesh-lite-wizard-result', 'style': 'margin-top:12px' })
 			]));

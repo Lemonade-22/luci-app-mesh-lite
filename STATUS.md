@@ -27,7 +27,7 @@
 | M2.1 | 一键配置向导、射频读数、分体式应用按钮、本机无线读取 | ✅ |
 | M3 | 节点页、凭据阶梯、secrets 管理、AP 下发 | ✅ |
 | M4 | 巡检页、串行拉取、期望/实际差异对比 | ✅ |
-| M5 | 英文翻译包、profile 导入、加固（关密码登录） | ✅ |
+| M5 | 中文翻译包、profile 导入、加固（关密码登录） | ✅ |
 
 ### 2.2 五个页面
 
@@ -109,7 +109,7 @@
 | SSH 超时 | AP 离线时命令会挂住 | 已用 `timeout` 包裹，默认 10 秒，可在 `ssh_timeout` 调整 |
 | 依赖 sshpass | 未安装时无法自动授权 | 页面提示手工放公钥 |
 | 巡检需逐台 SSH | 台数多时一轮较慢 | 串行设计 + `ssh_timeout` 可控，符合小主机场景 |
-| 英文翻译 | 源语言为中文，英文需装 `luci-i18n-mesh-lite-en` | 已提供 246 条完整翻译 |
+| 中文翻译 | 英文为源语言，中文需装 `luci-i18n-mesh-lite-zh-cn` | 已提供 246 条完整翻译 |
 | 未经真机 | 存在未知兼容问题 | 需上机验证 |
 
 ---
@@ -161,7 +161,7 @@ make package/luci-app-mesh-lite/compile V=s
 | `htdocs/.../mesh-lite/profile.js` | 配置模板页 |
 | `htdocs/.../mesh-lite/nodes.js` | 节点页 |
 | `htdocs/.../mesh-lite/inspect.js` | 巡检页 |
-| `po/en/luci-app-mesh-lite.po` | 英文翻译（246 条） |
+| `po/zh_Hans/luci-app-mesh-lite.po` | 中文翻译（246 条） |
 | `po/templates/luci-app-mesh-lite.pot` | 翻译模板 |
 | `tests/helpers-test.sh` | 单元测试（56 项） |
 | `tests/stub/*` | 5 个命令桩 + jshn 桩 |

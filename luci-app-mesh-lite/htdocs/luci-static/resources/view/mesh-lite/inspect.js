@@ -70,7 +70,7 @@ return view.extend({
 		box.innerHTML = '';
 
 		if (!nodes.length) {
-			box.appendChild(E('p', { 'class': 'cbi-section-descr' }, _('还没有节点。')));
+			box.appendChild(E('p', { 'class': 'cbi-section-descr' }, _('No nodes yet.')));
 			return;
 		}
 
@@ -82,14 +82,14 @@ return view.extend({
 				(ip || '-') + ' · ' + (n.name || '')));
 
 			if (!res) {
-				box.appendChild(E('p', { 'class': 'cbi-section-descr' }, _('尚未巡检。')));
+				box.appendChild(E('p', { 'class': 'cbi-section-descr' }, _('Not inspected yet.')));
 				return;
 			}
 
 			if (res.ok !== true) {
 				fail++;
 				box.appendChild(E('p', { 'style': 'color:#c62828' },
-					_('不可达或读取失败：%s').format(res.error || _('未知'))));
+					_('Unreachable or read failed: %s').format(res.error || _('Unknown'))));
 				return;
 			}
 
@@ -100,18 +100,18 @@ return view.extend({
 			});
 
 			box.appendChild(E('p', { 'class': 'cbi-section-descr' },
-				_('主机名：%s · 运行 %s 秒').format(res.hostname || '-', res.uptime || '-')));
+				_('Hostname: %s · uptime %s s').format(res.hostname || '-', res.uptime || '-')));
 
 			var rows = [E('tr', { 'class': 'tr table-titles' }, [
-				E('th', { 'class': 'th' }, _('接口')),
-				E('th', { 'class': 'th' }, _('频段')),
+				E('th', { 'class': 'th' }, _('Interface')),
+				E('th', { 'class': 'th' }, _('Band')),
 				E('th', { 'class': 'th' }, _('SSID')),
-				E('th', { 'class': 'th' }, _('加密')),
+				E('th', { 'class': 'th' }, _('Encryption')),
 				E('th', { 'class': 'th' }, _('802.11r')),
 				E('th', { 'class': 'th' }, _('MD')),
 				E('th', { 'class': 'th' }, _('802.11k')),
 				E('th', { 'class': 'th' }, _('802.11v')),
-				E('th', { 'class': 'th' }, _('密码'))
+				E('th', { 'class': 'th' }, _('Password'))
 			])];
 
 			var nodeDiff = 0;
@@ -139,11 +139,11 @@ return view.extend({
 					E('td', { 'class': 'td' }, band || '-'),
 					cell(b.ssid || '-', badSsid),
 					cell(b.encryption || '-', badEnc),
-					cell(gotR ? _('已启用') : _('未启用'), badR),
+					cell(gotR ? _('Enabled') : _('Disabled'), badR),
 					cell(b.md || '-', badMd),
-					cell(b.k === '1' ? _('是') : _('否'), badK),
-					cell(b.v === '1' ? _('是') : _('否'), badV),
-					cell(b.key === '1' ? _('有') : _('无'), badKey)
+					cell(b.k === '1' ? _('Yes') : _('No'), badK),
+					cell(b.v === '1' ? _('Yes') : _('No'), badV),
+					cell(b.key === '1' ? _('yes') : _('none'), badKey)
 				]));
 			});
 
@@ -156,7 +156,7 @@ return view.extend({
 		});
 
 		box.appendChild(E('p', { 'style': 'margin-top:12px;font-weight:bold' },
-			_('一致 %d 台 · 有差异 %d 台 · 不可达 %d 台').format(same, diff, fail)));
+			_('%d in sync · %d with differences · %d unreachable').format(same, diff, fail)));
 	},
 
 	startInspect: function(ev) {
@@ -166,7 +166,7 @@ return view.extend({
 		var self = this;
 
 		if (!nodes.length) {
-			ui.addNotification(null, E('p', {}, _('还没有节点，请先到“节点”页添加。')), 'warning');
+			ui.addNotification(null, E('p', {}, _('No nodes yet; add them on the Nodes page first.')), 'warning');
 			return;
 		}
 
@@ -178,7 +178,7 @@ return view.extend({
 
 		function step() {
 			if (idx >= nodes.length) {
-				self.setProgress(_('巡检完成'));
+				self.setProgress(_('Inspection complete'));
 				return Promise.resolve();
 			}
 
@@ -188,10 +188,10 @@ return view.extend({
 			if (!ip)
 				return step();
 
-			self.setProgress(_('正在巡检 %s（%d/%d）…').format(ip, idx, nodes.length));
+			self.setProgress(_('Inspecting %s (%d/%d)…').format(ip, idx, nodes.length));
 
 			return callPoll(ip).then(function(res) {
-				self.results[ip] = res || { ok: false, error: _('无响应') };
+				self.results[ip] = res || { ok: false, error: _('No response') };
 				self.renderResults();
 				return step();
 			}).catch(function(err) {
@@ -213,26 +213,26 @@ return view.extend({
 
 	render: function() {
 		return E('div', {}, [
-			E('h2', {}, _('巡检')),
+			E('h2', {}, _('Inspect')),
 			E('div', { 'class': 'cbi-section' }, [
 				E('p', { 'class': 'cbi-section-descr' },
-					_('通过 SSH 逐台读取 AP 的实际无线配置，与当前模板对比。严格串行：上一台返回后才请求下一台。')),
+					_('Reads each AP actual wireless configuration over SSH and compares it with the current template. Strictly serial: the next AP is only contacted after the previous one returns.')),
 				E('div', { 'class': 'cbi-page-actions' }, [
 					E('button', {
 						'class': 'btn cbi-button cbi-button-apply',
 						'click': this.startInspect.bind(this)
-					}, _('开始巡检')),
+					}, _('Start inspection')),
 					E('button', {
 						'class': 'btn cbi-button cbi-button-neutral',
 						'click': this.clearResults.bind(this)
-					}, _('清除结果'))
+					}, _('Clear results'))
 				]),
 				E('p', { 'id': 'mesh-lite-inspect-progress', 'style': 'margin-top:8px;font-weight:bold' }, '')
 			]),
 			E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, _('结果')),
+				E('h3', {}, _('Results')),
 				E('div', { 'id': 'mesh-lite-inspect-results' }, [
-					E('p', { 'class': 'cbi-section-descr' }, _('点击“开始巡检”后逐台显示结果。'))
+					E('p', { 'class': 'cbi-section-descr' }, _('Results appear node by node after you click Start inspection.'))
 				])
 			])
 		]);

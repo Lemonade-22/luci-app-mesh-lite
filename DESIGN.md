@@ -335,13 +335,15 @@ config node 'ap1'
 
 ## 14. 国际化
 
-源码文案以**中文为源语言**（msgid 即中文），英文通过 `po/en/luci-app-mesh-lite.po` 提供，构建时由 `luci.mk` 产出 `luci-i18n-mesh-lite-en` 包。
+LuCI 的源语言就是英文（`luci.mk` 没有 `en` 这个翻译语言），因此：
 
-- 这样避免为 i18n 重写全部 JS，改动风险最小；
-- 中文用户看到源码原文，英文用户安装翻译包即可；
+- **源码文案统一用英文**，作为 msgid；
+- 中文翻译放在 `po/zh_Hans/luci-app-mesh-lite.po`，构建时由 `luci.mk` 产出 `luci-i18n-mesh-lite-zh-cn`；
 - `po/templates/luci-app-mesh-lite.pot` 供后续用 `xgettext` 更新。
 
-覆盖率：246 条唯一字符串全部有英文翻译。
+覆盖率：246 条唯一字符串全部有中文翻译。
+
+> 历史：早期版本曾用"中文源 + `po/en`"的布局，但 LuCI 不生成 `en` 翻译包（英文是源语言），CI 只产出了主包而没有翻译包。已用一次性脚本把 246 对翻译反向迁移（JS msgid 改英文、`po/zh_Hans` 存中文）。
 
 ---
 

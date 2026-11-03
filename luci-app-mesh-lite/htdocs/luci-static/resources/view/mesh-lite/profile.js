@@ -52,19 +52,19 @@ function apInterfaces() {
 function renderVerifyTable(result) {
 	if (!result || result.ok !== true) {
 		return E('p', { 'class': 'cbi-section-descr' },
-			_('无法回读运行态：%s').format((result && result.error) || _('未知原因')));
+			_('Cannot read runtime state: %s').format((result && result.error) || _('Unknown reason')));
 	}
 
 	var ifaces = result.ifaces || [];
 
 	if (!ifaces.length)
 		return E('p', { 'class': 'cbi-section-descr' },
-			_('没有读到 hostapd 接口。请确认已安装满血 wpad 且无线已启动。'));
+			_('No hostapd interfaces found. Make sure a full wpad is installed and wireless is running.'));
 
 	var rows = [E('tr', { 'class': 'tr table-titles' }, [
-		E('th', { 'class': 'th' }, _('接口')),
+		E('th', { 'class': 'th' }, _('Interface')),
 		E('th', { 'class': 'th' }, _('SSID')),
-		E('th', { 'class': 'th' }, _('信道')),
+		E('th', { 'class': 'th' }, _('Channel')),
 		E('th', { 'class': 'th' }, _('802.11r')),
 		E('th', { 'class': 'th' }, _('MD')),
 		E('th', { 'class': 'th' }, _('802.11k')),
@@ -79,11 +79,11 @@ function renderVerifyTable(result) {
 			E('td', { 'class': 'td' }, i.ssid || '-'),
 			E('td', { 'class': 'td' }, i.channel || '-'),
 			E('td', { 'class': 'td', 'style': 'color:' + (rOn ? '#2e7d32' : '#c62828') },
-				rOn ? _('已启用') : _('未启用')),
+				rOn ? _('Enabled') : _('Disabled')),
 			E('td', { 'class': 'td' }, i.md || '-'),
-			E('td', { 'class': 'td' }, i.k === '1' ? _('已启用') : _('未启用')),
-			E('td', { 'class': 'td' }, i.v === '1' ? _('已启用') : _('未启用')),
-			E('td', { 'class': 'td' }, i.ds === '1' ? _('是') : _('否'))
+			E('td', { 'class': 'td' }, i.k === '1' ? _('Enabled') : _('Disabled')),
+			E('td', { 'class': 'td' }, i.v === '1' ? _('Enabled') : _('Disabled')),
+			E('td', { 'class': 'td' }, i.ds === '1' ? _('Yes') : _('No'))
 		]));
 	});
 
@@ -103,15 +103,15 @@ function renderLocalConfigTable() {
 
 	if (!ifaces.length)
 		return E('p', { 'class': 'cbi-section-descr' },
-			_('本机没有无线接口配置。若这台设备只当 AC，这是正常的。'));
+			_('No wireless interfaces on this device. This is normal if it only acts as an AC.'));
 
 	var rows = [E('tr', { 'class': 'tr table-titles' }, [
-		E('th', { 'class': 'th' }, _('接口')),
-		E('th', { 'class': 'th' }, _('设备')),
-		E('th', { 'class': 'th' }, _('频段')),
-		E('th', { 'class': 'th' }, _('模式')),
+		E('th', { 'class': 'th' }, _('Interface')),
+		E('th', { 'class': 'th' }, _('Device')),
+		E('th', { 'class': 'th' }, _('Band')),
+		E('th', { 'class': 'th' }, _('Mode')),
 		E('th', { 'class': 'th' }, _('SSID')),
-		E('th', { 'class': 'th' }, _('加密')),
+		E('th', { 'class': 'th' }, _('Encryption')),
 		E('th', { 'class': 'th' }, _('802.11r')),
 		E('th', { 'class': 'th' }, _('MD')),
 		E('th', { 'class': 'th' }, _('11k')),
@@ -126,10 +126,10 @@ function renderLocalConfigTable() {
 			E('td', { 'class': 'td' }, s.mode || '-'),
 			E('td', { 'class': 'td' }, s.ssid || '-'),
 			E('td', { 'class': 'td' }, s.encryption || '-'),
-			E('td', { 'class': 'td' }, s.ieee80211r === '1' ? _('已启用') : _('未启用')),
+			E('td', { 'class': 'td' }, s.ieee80211r === '1' ? _('Enabled') : _('Disabled')),
 			E('td', { 'class': 'td' }, s.mobility_domain || '-'),
-			E('td', { 'class': 'td' }, s.ieee80211k === '1' ? _('是') : _('否')),
-			E('td', { 'class': 'td' }, s.bss_transition === '1' ? _('是') : _('否'))
+			E('td', { 'class': 'td' }, s.ieee80211k === '1' ? _('Yes') : _('No')),
+			E('td', { 'class': 'td' }, s.bss_transition === '1' ? _('Yes') : _('No'))
 		]));
 	});
 
@@ -142,7 +142,7 @@ function paintLocal(box, verify) {
 
 	box.innerHTML = '';
 	box.appendChild(renderLocalConfigTable());
-	box.appendChild(E('h4', { 'style': 'margin-top:12px' }, _('运行态（hostapd 回读）')));
+	box.appendChild(E('h4', { 'style': 'margin-top:12px' }, _('Runtime state (hostapd read-back)')));
 	box.appendChild(renderVerifyTable(verify));
 }
 
@@ -169,7 +169,7 @@ function renderSplitButton(v) {
 				hide();
 				v.applyLocalAndRemote();
 			}
-		}, _('应用到模板并重启本机和 AP 无线'))
+		}, _('Apply to template and restart local and AP radios'))
 	]);
 
 	return E('div', {
@@ -183,11 +183,11 @@ function renderSplitButton(v) {
 				ev.preventDefault();
 				v.applyRemoteOnly();
 			}
-		}, _('应用到模板并重启 AP 无线')),
+		}, _('Apply to template and restart AP radios')),
 		E('button', {
 			'class': 'btn cbi-button cbi-button-apply',
 			'style': 'padding-left:8px;padding-right:8px;border-left:1px solid rgba(255,255,255,.35)',
-			'title': _('更多应用方式'),
+			'title': _('More apply options'),
 			'click': function(ev) {
 				ev.preventDefault();
 				menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
@@ -218,7 +218,7 @@ return view.extend({
 
 			if (!nodes.length) {
 				ui.addNotification(null, E('p', {},
-					_('模板已保存。尚未配置 AP 节点，跳过下发（请先在“节点”页添加）。')), 'warning');
+					_('Template saved. No AP nodes configured, skipping push (add nodes on the Nodes page first).')), 'warning');
 				return;
 			}
 
@@ -229,10 +229,10 @@ return view.extend({
 			return callApplyNodes(md).then(function(res) {
 				if (!res || res.ok !== true)
 					ui.addNotification(null, E('p', {},
-						_('模板已保存，但 AP 下发未成功：%s').format((res && res.error) || _('未知原因'))), 'warning');
+						_('Template saved, but pushing to APs failed: %s').format((res && res.error) || _('Unknown reason'))), 'warning');
 				else
 					ui.addNotification(null, E('p', {},
-						_('模板已保存并下发到 %d 台 AP。').format(res.count || 0)), 'info');
+						_('Template saved and pushed to %d AP(s).').format(res.count || 0)), 'info');
 			});
 		});
 	},
@@ -266,24 +266,24 @@ return view.extend({
 		var ftLocal = uci.get('mesh_lite', 'general', 'ft_psk_generate_local') !== '0';
 
 		if (!ssid) {
-			ui.addNotification(null, E('p', {}, _('SSID 不能为空。')), 'danger');
+			ui.addNotification(null, E('p', {}, _('SSID must not be empty.')), 'danger');
 			return Promise.resolve(false);
 		}
 
 		if (enc !== 'none' && key.length < 8) {
-			ui.addNotification(null, E('p', {}, _('WPA 密码至少 8 位；开放网络请把加密方式设为 none。')), 'danger');
+			ui.addNotification(null, E('p', {}, _('WPA password must be at least 8 characters; use encryption "none" for an open network.')), 'danger');
 			return Promise.resolve(false);
 		}
 
 		if (!mdAuto && !/^[0-9a-fA-F]{4}$/.test(md)) {
-			ui.addNotification(null, E('p', {}, _('移动域必须是 4 位十六进制，例如 a1b2。')), 'danger');
+			ui.addNotification(null, E('p', {}, _('Mobility domain must be four hex digits, e.g. a1b2.')), 'danger');
 			return Promise.resolve(false);
 		}
 
 		var ifaces = apInterfaces();
 
 		if (!ifaces.length) {
-			ui.addNotification(null, E('p', {}, _('没有可应用的 AP 接口。')), 'danger');
+			ui.addNotification(null, E('p', {}, _('No AP interfaces available to apply.')), 'danger');
 			return Promise.resolve(false);
 		}
 
@@ -350,7 +350,7 @@ return view.extend({
 		var ta = document.getElementById('mesh-lite-local');
 
 		if (ta)
-			ta.innerHTML = '<em>' + _('正在重载无线并回读…') + '</em>';
+			ta.innerHTML = '<em>' + _('Reloading wireless and reading back…') + '</em>';
 
 		return uci.save().then(function() {
 			return callApplyWireless();
@@ -360,10 +360,10 @@ return view.extend({
 			return callVerifyWireless();
 		}).then(function(res) {
 			paintLocal(ta, res);
-			ui.addNotification(null, E('p', {}, _('配置已写入并重载本机无线。')), 'info');
+			ui.addNotification(null, E('p', {}, _('Configuration written and local wireless reloaded.')), 'info');
 			return true;
 		}).catch(function(err) {
-			ui.addNotification(null, E('p', {}, _('应用失败：%s').format(err)), 'danger');
+			ui.addNotification(null, E('p', {}, _('Apply failed: %s').format(err)), 'danger');
 			return false;
 		});
 	},
@@ -374,7 +374,7 @@ return view.extend({
 		var box = document.getElementById('mesh-lite-local');
 
 		if (box)
-			box.innerHTML = '<em>' + _('读取中…') + '</em>';
+			box.innerHTML = '<em>' + _('Reading…') + '</em>';
 
 		return callVerifyWireless().then(function(res) {
 			paintLocal(box, res);
@@ -403,9 +403,9 @@ return view.extend({
 			ft_psk_generate_local: uci.get('mesh_lite', 'general', 'ft_psk_generate_local') !== '0'
 		};
 
-		ui.showModal(_('导出配置'), [
+		ui.showModal(_('Export configuration'), [
 			E('p', { 'class': 'cbi-section-descr' },
-				_('把下面内容保存为 profile.json，可在其他 AP 上导入。注意：包含 Wi-Fi 密码。')),
+				_('Save the following as profile.json to import on other APs. Note: it contains the Wi-Fi password.')),
 			E('textarea', {
 				'rows': 14,
 				'style': 'width:100%;font-family:monospace;font-size:12px',
@@ -416,13 +416,13 @@ return view.extend({
 					'class': 'btn cbi-button',
 					'click': function() {
 						navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(profile, null, 2));
-						ui.addNotification(null, E('p', {}, _('已复制到剪贴板（若浏览器允许）。')), 'info');
+						ui.addNotification(null, E('p', {}, _('Copied to clipboard (if the browser allows it).')), 'info');
 					}
-				}, _('复制')),
+				}, _('Copy')),
 				E('button', {
 					'class': 'btn cbi-button cbi-button-neutral',
 					'click': ui.hideModal
-				}, _('关闭'))
+				}, _('Disable'))
 			])
 		]);
 	},
@@ -434,7 +434,7 @@ return view.extend({
 		var ta = E('textarea', {
 			'rows': 12,
 			'style': 'width:100%;font-family:monospace;font-size:12px',
-			'placeholder': _('粘贴 profile.json 内容')
+			'placeholder': _('Paste profile.json content')
 		});
 		var file = E('input', { 'type': 'file', 'accept': '.json,application/json' });
 
@@ -452,9 +452,9 @@ return view.extend({
 			reader.readAsText(f);
 		});
 
-		ui.showModal(_('导入配置'), [
+		ui.showModal(_('Import configuration'), [
 			E('p', { 'class': 'cbi-section-descr' },
-				_('粘贴或选择 profile.json 后点击“导入”。只写入模板，不会自动下发。')),
+				_('Paste or choose profile.json and click Import. It only writes the template; nothing is pushed.')),
 			E('p', {}, [ file ]),
 			ta,
 			E('div', { 'class': 'right' }, [
@@ -470,7 +470,7 @@ return view.extend({
 						}
 						catch (e) {
 							ui.addNotification(null, E('p', {},
-								_('JSON 解析失败：%s').format(e)), 'danger');
+								_('JSON parse failed: %s').format(e)), 'danger');
 							return;
 						}
 
@@ -478,18 +478,18 @@ return view.extend({
 							ui.hideModal();
 						});
 					}
-				}, _('导入')),
+				}, _('Import')),
 				E('button', {
 					'class': 'btn cbi-button cbi-button-neutral',
 					'click': ui.hideModal
-				}, _('取消'))
+				}, _('Cancel'))
 			])
 		]);
 	},
 
 	applyImport: function(data) {
 		if (!data || typeof data !== 'object') {
-			ui.addNotification(null, E('p', {}, _('导入内容不是有效的配置对象。')), 'danger');
+			ui.addNotification(null, E('p', {}, _('The imported content is not a valid configuration object.')), 'danger');
 			return Promise.resolve();
 		}
 
@@ -517,7 +517,7 @@ return view.extend({
 			uci.set('mesh_lite', 'general', 'ft_psk_generate_local', data.ft_psk_generate_local ? '1' : '0');
 
 		return uci.save().then(function() {
-			ui.addNotification(null, E('p', {}, _('配置已导入到模板。')), 'info');
+			ui.addNotification(null, E('p', {}, _('Configuration imported into the template.')), 'info');
 			window.location.reload();
 		});
 	},
@@ -525,10 +525,10 @@ return view.extend({
 	render: function(data) {
 		var verify = data[2] || {};
 
-		var m = new form.Map('mesh_lite', _('配置模板'),
-			_('这里定义一套全屋统一的 Wi-Fi 与漫游参数。应用后写入本机所有 AP 接口，并重载无线。'));
+		var m = new form.Map('mesh_lite', _('Configuration Profile'),
+			_('Define one set of Wi-Fi and roaming parameters for the whole network. Applying writes them to every local AP interface and reloads wireless.'));
 
-		var s = m.section(form.TypedSection, 'profile', _('无线模板'));
+		var s = m.section(form.TypedSection, 'profile', _('Wireless template'));
 		s.anonymous = true;
 		s.addremove = false;
 
@@ -536,83 +536,83 @@ return view.extend({
 		o.rmempty = false;
 		o.placeholder = 'Home';
 
-		o = s.option(form.Value, 'key', _('密码'),
-			_('开放网络请把加密方式设为 none。'));
+		o = s.option(form.Value, 'key', _('Password'),
+			_('For an open network, set encryption to none.'));
 		o.password = true;
 
-		o = s.option(form.ListValue, 'encryption', _('加密方式'));
+		o = s.option(form.ListValue, 'encryption', _('Encryption'));
 		o.value('psk2', 'WPA2-PSK (CCMP)');
 		o.value('psk-mixed', 'WPA/WPA2-PSK 混合');
 		o.value('sae', 'WPA3-SAE');
 		o.value('sae-mixed', 'WPA2/WPA3 混合');
-		o.value('none', _('开放（无密码）'));
+		o.value('none', _('Open (no password)'));
 
-		o = s.option(form.Flag, 'hidden', _('隐藏 SSID'));
+		o = s.option(form.Flag, 'hidden', _('Hide SSID'));
 		o.default = '0';
 
-		o = s.option(form.Value, 'beacon', _('Beacon 间隔（ms）'));
+		o = s.option(form.Value, 'beacon', _('Beacon interval (ms)'));
 		o.datatype = 'uinteger';
 		o.default = '100';
 
-		o = s.option(form.Value, 'channel_2g', _('2.4G 信道'),
-			_('留空表示不修改；auto 表示自动。'));
-		o.placeholder = _('auto 或 1-13');
+		o = s.option(form.Value, 'channel_2g', _('2.4G channel'),
+			_('Empty means do not change; auto means automatic.'));
+		o.placeholder = _('auto or 1-13');
 
-		o = s.option(form.Value, 'channel_5g', _('5G 信道'),
-			_('留空表示不修改；auto 表示自动。'));
-		o.placeholder = _('auto 或 36-165');
+		o = s.option(form.Value, 'channel_5g', _('5G channel'),
+			_('Empty means do not change; auto means automatic.'));
+		o.placeholder = _('auto or 36-165');
 
-		o = s.option(form.Value, 'txpower_2g', _('2.4G 功率（dBm）'));
+		o = s.option(form.Value, 'txpower_2g', _('2.4G tx power (dBm)'));
 		o.datatype = 'uinteger';
 
-		o = s.option(form.Value, 'txpower_5g', _('5G 功率（dBm）'));
+		o = s.option(form.Value, 'txpower_5g', _('5G tx power (dBm)'));
 		o.datatype = 'uinteger';
 
-		o = s.option(form.ListValue, 'bw_2g', _('2.4G 带宽'));
-		o.value('', _('不修改'));
+		o = s.option(form.ListValue, 'bw_2g', _('2.4G bandwidth'));
+		o.value('', _('Do not change'));
 		o.value('HT20', 'HT20');
 		o.value('HT40', 'HT40');
 
-		o = s.option(form.ListValue, 'bw_5g', _('5G 带宽'));
-		o.value('', _('不修改'));
+		o = s.option(form.ListValue, 'bw_5g', _('5G bandwidth'));
+		o.value('', _('Do not change'));
 		o.value('VHT80', 'VHT80');
 		o.value('VHT160', 'VHT160');
 
-		o = s.option(form.Flag, 'enable_r_5g', _('5G 开启 802.11r'));
+		o = s.option(form.Flag, 'enable_r_5g', _('Enable 802.11r on 5G'));
 		o.default = '1';
 
-		o = s.option(form.Flag, 'enable_r_2g', _('2.4G 开启 802.11r'),
-			_('不建议：2.4G 开 r 容易抖动。'));
+		o = s.option(form.Flag, 'enable_r_2g', _('Enable 802.11r on 2.4G'),
+			_('Not recommended: 802.11r on 2.4G tends to flap.'));
 		o.default = '0';
 
-		var ft = m.section(form.TypedSection, 'settings', _('漫游参数（802.11k/v 与 FT）'));
+		var ft = m.section(form.TypedSection, 'settings', _('Roaming parameters (802.11k/v and FT)'));
 		ft.anonymous = true;
 		ft.addremove = false;
 
-		o = ft.option(form.Flag, 'enable_k', _('启用 802.11k'));
+		o = ft.option(form.Flag, 'enable_k', _('Enable 802.11k'));
 		o.default = '1';
 
-		o = ft.option(form.Flag, 'enable_v', _('启用 802.11v'));
+		o = ft.option(form.Flag, 'enable_v', _('Enable 802.11v'));
 		o.default = '1';
 
-		o = ft.option(form.Flag, 'md_auto', _('自动生成移动域'));
+		o = ft.option(form.Flag, 'md_auto', _('Derive mobility domain automatically'));
 		o.default = '1';
 
-		o = ft.option(form.Value, 'mobility_domain', _('移动域（MD）'));
+		o = ft.option(form.Value, 'mobility_domain', _('Mobility domain (MD)'));
 		o.placeholder = 'a1b2';
 		o.depends('md_auto', '0');
 		o.validate = function(section_id, value) {
 			if (!value)
 				return true;
 			if (!/^[0-9a-fA-F]{4}$/.test(value))
-				return _('移动域必须是 4 位十六进制，例如 a1b2');
+				return _('Mobility domain must be four hex digits, e.g. a1b2');
 			return true;
 		};
 
 		o = ft.option(form.Flag, 'ft_over_ds', _('FT over DS'));
 		o.default = '1';
 
-		o = ft.option(form.Flag, 'ft_psk_generate_local', _('本地生成 PMK（FT-PSK）'));
+		o = ft.option(form.Flag, 'ft_psk_generate_local', _('Generate PMK locally (FT-PSK)'));
 		o.default = '1';
 
 		/* 自定义的“应用”按钮需要先保存表单，因此把 Map 挂在 view 上。 */
@@ -620,36 +620,36 @@ return view.extend({
 
 		return m.render().then(function(node) {
 			node.appendChild(E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, _('本机无线信息')),
+				E('h3', {}, _('Local wireless information')),
 				E('p', { 'class': 'cbi-section-descr' },
-					_('读取本机（可能只当 AC，也可能同时是 AP）的无线配置与运行态，确认模板是否已正确落盘。')),
+					_('Read this device wireless configuration and runtime state (it may act only as an AC or also as an AP) to confirm the template was applied.')),
 				E('div', { 'class': 'cbi-page-actions' }, [
 					E('button', {
 						'class': 'btn cbi-button cbi-button-neutral',
 						'click': this.refreshLocal.bind(this)
-					}, _('读取本机无线信息'))
+					}, _('Read local wireless information'))
 				]),
 				E('div', { 'id': 'mesh-lite-local', 'style': 'margin-top:12px' }, [
 					renderLocalConfigTable(),
-					E('h4', { 'style': 'margin-top:12px' }, _('运行态（hostapd 回读）')),
+					E('h4', { 'style': 'margin-top:12px' }, _('Runtime state (hostapd read-back)')),
 					renderVerifyTable(verify)
 				])
 			]));
 
 			node.appendChild(E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, _('应用')),
+				E('h3', {}, _('Apply')),
 				E('p', { 'class': 'cbi-section-descr' },
-					_('“应用到模板”只保存模板；“重启 AP 无线”会把模板下发到已纳管的 AP（节点管理在 M3 提供）。')),
+					_('"Apply to template" only saves the template; "restart AP radios" pushes it to managed APs.')),
 				E('div', { 'class': 'cbi-page-actions' }, [
 					renderSplitButton(this),
 					E('button', {
 						'class': 'btn cbi-button',
 						'click': this.importProfile.bind(this)
-					}, _('导入配置')),
+					}, _('Import configuration')),
 					E('button', {
 						'class': 'btn cbi-button',
 						'click': this.exportProfile.bind(this)
-					}, _('导出配置'))
+					}, _('Export configuration'))
 				])
 			]));
 

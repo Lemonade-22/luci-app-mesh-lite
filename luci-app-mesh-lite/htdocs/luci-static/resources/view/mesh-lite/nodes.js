@@ -12,12 +12,12 @@ var callDiscover = rpc.declare({ object: 'mesh-lite', method: 'discover', expect
 var callHarden = rpc.declare({ object: 'mesh-lite', method: 'harden', params: [ 'ip' ], expect: {} });
 
 var STATE_LABEL = {
-	unknown: _('未知'),
-	key_ok: _('密钥可用'),
-	override: _('单独凭据'),
-	default: _('默认凭据'),
-	unified: _('统一凭据'),
-	failed: _('失败')
+	unknown: _('Unknown'),
+	key_ok: _('Key works'),
+	override: _('Per-node credential'),
+	default: _('Default credential'),
+	unified: _('Unified credential'),
+	failed: _('Failed')
 };
 
 function stateBadge(state) {
@@ -31,11 +31,11 @@ function stateBadge(state) {
 	return E('span', {
 		'style': 'display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;' +
 			'color:#fff;background:' + color
-	}, STATE_LABEL[state] || state || _('未知'));
+	}, STATE_LABEL[state] || state || _('Unknown'));
 }
 
 function askPassword(host) {
-	return window.prompt(_('请输入 %s 的 SSH 密码（root 用户）').format(host), '');
+	return window.prompt(_('Enter the SSH password for %s (root user)').format(host), '');
 }
 
 return view.extend({
@@ -57,22 +57,22 @@ return view.extend({
 
 		return callProbe(ip).then(function(res) {
 			if (!res || res.ok !== true) {
-				this.notify(_('探测失败：%s').format((res && res.error) || _('未知')), 'danger');
+				this.notify(_('Probe failed: %s').format((res && res.error) || _('Unknown')), 'danger');
 				return;
 			}
 
 			if (res.key_ok) {
 				return this.setState(sid, 'key_ok').then(function() {
-					this.notify(_('%s：密钥可用').format(ip), 'info');
+					this.notify(_('%s: key works').format(ip), 'info');
 					window.location.reload();
 				}.bind(this));
 			}
 
 			return this.setState(sid, res.port22 ? 'failed' : 'unknown').then(function() {
-				this.notify(_('%s：未授权（端口 22 %s，sshpass %s）').format(
+				this.notify(_('%s: not authorized (port 22 %s, sshpass %s)').format(
 					ip,
-					res.port22 ? _('开放') : _('不通'),
-					res.sshpass ? _('已装') : _('未装')), 'warning');
+					res.port22 ? _('open') : _('closed'),
+					res.sshpass ? _('installed') : _('not installed')), 'warning');
 			}.bind(this));
 		}.bind(this));
 	},
@@ -85,12 +85,12 @@ return view.extend({
 		return callProbe(ip).then(function(res) {
 			if (res && res.key_ok) {
 				return self.setState(sid, 'key_ok').then(function() {
-					self.notify(_('%s：已经可用，无需授权。').format(ip), 'info');
+					self.notify(_('%s: already authorized, no action needed.').format(ip), 'info');
 				});
 			}
 
 			if (res && res.sshpass === false) {
-				self.notify(_('未安装 sshpass，无法自动授权。请先安装 sshpass，或手工把公钥放到 AP。'), 'danger');
+				self.notify(_('sshpass is not installed, so automatic authorization is unavailable. Install sshpass or place the public key on the AP manually.'), 'danger');
 				return;
 			}
 
@@ -98,7 +98,7 @@ return view.extend({
 			return callPush(ip, 'default', 'root', '').then(function(r) {
 				if (r && r.ok === true) {
 					return self.setState(sid, 'key_ok').then(function() {
-						self.notify(_('%s：默认凭据命中，授权成功。').format(ip), 'info');
+						self.notify(_('%s: default credentials matched; authorized.').format(ip), 'info');
 						window.location.reload();
 					});
 				}
@@ -111,13 +111,13 @@ return view.extend({
 				return callPush(ip, 'override', 'root', pass).then(function(r2) {
 					if (r2 && r2.ok === true) {
 						return self.setState(sid, 'key_ok').then(function() {
-							self.notify(_('%s：授权成功，已记住该台密码。').format(ip), 'info');
+							self.notify(_('%s: authorized; password saved for this node.').format(ip), 'info');
 							window.location.reload();
 						});
 					}
 
 					self.setState(sid, 'failed');
-					self.notify(_('%s：授权失败（%s）').format(ip, (r2 && r2.error) || _('未知')), 'danger');
+					self.notify(_('%s: authorization failed (%s)').format(ip, (r2 && r2.error) || _('Unknown')), 'danger');
 				});
 			});
 		});
@@ -128,10 +128,10 @@ return view.extend({
 
 		return callVerifyNode(ip).then(function(res) {
 			if (res && res.ok === true) {
-				this.notify(_('%s：连接正常，主机名 %s').format(ip, res.hostname || '-'), 'info');
+				this.notify(_('%s: connected, hostname %s').format(ip, res.hostname || '-'), 'info');
 			}
 			else {
-				this.notify(_('%s：密钥登录失败').format(ip), 'warning');
+				this.notify(_('%s: key login failed').format(ip), 'warning');
 			}
 		}.bind(this));
 	},
@@ -139,7 +139,7 @@ return view.extend({
 	doForget: function(sid, ip, ev) {
 		ev.preventDefault();
 
-		if (!confirm(_('清除 %s 的单独凭据？').format(ip)))
+		if (!confirm(_('Clear the per-node credential for %s?').format(ip)))
 			return;
 
 		return callForget(ip).then(function() {
@@ -147,7 +147,7 @@ return view.extend({
 		}).then(function() {
 			return uci.save();
 		}).then(function() {
-			this.notify(_('已清除 %s 的凭据。').format(ip), 'info');
+			this.notify(_('Cleared the credential for %s.').format(ip), 'info');
 			window.location.reload();
 		}.bind(this));
 	},
@@ -155,7 +155,7 @@ return view.extend({
 	doRemove: function(sid, ev) {
 		ev.preventDefault();
 
-		if (!confirm(_('从节点列表移除？不会影响 AP 本身。')))
+		if (!confirm(_('Remove from the node list? The AP itself is not affected.')))
 			return;
 
 		uci.remove('mesh_lite', sid);
@@ -173,14 +173,14 @@ return view.extend({
 	doHarden: function(sid, ip, ev) {
 		ev.preventDefault();
 
-		if (!confirm(_('在 %s 上关闭 SSH 密码登录？请先确认密钥登录可用，否则可能失联。').format(ip)))
+		if (!confirm(_('Disable SSH password login on %s? Make sure key login works first, or you may lock yourself out.').format(ip)))
 			return;
 
 		return callHarden(ip).then(function(res) {
 			if (res && res.ok === true)
-				this.notify(_('%s：已关闭密码登录。').format(ip), 'info');
+				this.notify(_('%s: password login disabled.').format(ip), 'info');
 			else
-				this.notify(_('%s：加固失败（%s）').format(ip, (res && res.error) || _('未知')), 'danger');
+				this.notify(_('%s: hardening failed (%s)').format(ip, (res && res.error) || _('Unknown')), 'danger');
 		}.bind(this));
 	},
 
@@ -190,7 +190,7 @@ return view.extend({
 		var box = document.getElementById('mesh-lite-discovered');
 
 		if (box)
-			box.innerHTML = '<em>' + _('扫描中…') + '</em>';
+			box.innerHTML = '<em>' + _('Scanning…') + '</em>';
 
 		return callDiscover().then(function(res) {
 			var nodes = (res && res.nodes) || [];
@@ -203,14 +203,14 @@ return view.extend({
 			box.innerHTML = '';
 
 			if (!nodes.length) {
-				box.appendChild(E('p', { 'class': 'cbi-section-descr' }, _('没有发现其他设备。')));
+				box.appendChild(E('p', { 'class': 'cbi-section-descr' }, _('No other devices found.')));
 				return;
 			}
 
 			var rows = [E('tr', { 'class': 'tr table-titles' }, [
 				E('th', { 'class': 'th', 'style': 'width:40px' }, ''),
 				E('th', { 'class': 'th' }, _('IP')),
-				E('th', { 'class': 'th' }, _('主机名')),
+				E('th', { 'class': 'th' }, _('Hostname')),
 				E('th', { 'class': 'th' }, _('MAC'))
 			])];
 
@@ -228,7 +228,7 @@ return view.extend({
 				E('button', {
 					'class': 'btn cbi-button cbi-button-apply',
 					'click': this.addPicked.bind(this)
-				}, _('添加选中的设备为节点'))
+				}, _('Add selected devices as nodes'))
 			]));
 		}.bind(this));
 	},
@@ -266,7 +266,7 @@ return view.extend({
 		}.bind(this));
 
 		if (!added) {
-			this.notify(_('没有新增节点（可能已存在或未勾选）。'), 'warning');
+			this.notify(_('No nodes added (they may already exist or none were selected).'), 'warning');
 			return;
 		}
 
@@ -281,11 +281,11 @@ return view.extend({
 		var nodes = uci.sections('mesh_lite', 'node');
 
 		if (!nodes.length) {
-			this.notify(_('还没有节点。'), 'warning');
+			this.notify(_('No nodes yet.'), 'warning');
 			return;
 		}
 
-		var pass = window.prompt(_('统一密码：将对 %d 台节点尝试授权').format(nodes.length), '');
+		var pass = window.prompt(_('Unified password: will try to authorize %d node(s)').format(nodes.length), '');
 
 		if (pass === null || pass === '')
 			return;
@@ -298,7 +298,7 @@ return view.extend({
 		function step(i) {
 			if (i >= nodes.length) {
 				box.innerHTML = '';
-				box.appendChild(E('p', {}, _('完成：成功 %d 台，失败 %d 台。')
+				box.appendChild(E('p', {}, _('Done: %d succeeded, %d failed.')
 					.format(okCount, failCount)));
 				return Promise.resolve();
 			}
@@ -310,7 +310,7 @@ return view.extend({
 				return step(i + 1);
 
 			if (box)
-				box.innerHTML = '<em>' + _('正在处理 %s（%d/%d）…').format(ip, i + 1, nodes.length) + '</em>';
+				box.innerHTML = '<em>' + _('Processing %s (%d/%d)…').format(ip, i + 1, nodes.length) + '</em>';
 
 			return callPush(ip, 'unified', 'root', pass).then(function(r) {
 				if (r && r.ok === true) {
@@ -331,7 +331,7 @@ return view.extend({
 		return step(0).then(function() {
 			return uci.save();
 		}).then(function() {
-			self.notify(_('批量授权完成：成功 %d，失败 %d').format(okCount, failCount),
+			self.notify(_('Batch authorization done: %d succeeded, %d failed').format(okCount, failCount),
 				failCount ? 'warning' : 'info');
 		});
 	},
@@ -341,14 +341,14 @@ return view.extend({
 
 		var rows = [E('tr', { 'class': 'tr table-titles' }, [
 			E('th', { 'class': 'th' }, _('IP')),
-			E('th', { 'class': 'th' }, _('名称')),
-			E('th', { 'class': 'th' }, _('状态')),
-			E('th', { 'class': 'th' }, _('操作'))
+			E('th', { 'class': 'th' }, _('Name')),
+			E('th', { 'class': 'th' }, _('Status')),
+			E('th', { 'class': 'th' }, _('Actions'))
 		])];
 
 		if (!nodes.length) {
 			rows.push(E('tr', { 'class': 'tr' }, [
-				E('td', { 'class': 'td', 'colspan': '4' }, _('还没有节点。先扫描或手动添加。'))
+				E('td', { 'class': 'td', 'colspan': '4' }, _('No nodes yet. Scan or add one manually.'))
 			]));
 		}
 
@@ -360,48 +360,48 @@ return view.extend({
 				E('td', { 'class': 'td' }, s.name || '-'),
 				E('td', { 'class': 'td' }, stateBadge(s.auth_state)),
 				E('td', { 'class': 'td' }, [
-					E('button', { 'class': 'btn cbi-button cbi-button-small', 'click': this.doProbe.bind(this, s['.name'], ip) }, _('探测')), ' ',
-					E('button', { 'class': 'btn cbi-button cbi-button-small cbi-button-apply', 'click': this.doAuthorize.bind(this, s['.name'], ip) }, _('授权')), ' ',
-					E('button', { 'class': 'btn cbi-button cbi-button-small', 'click': this.doVerify.bind(this, s['.name'], ip) }, _('巡检')), ' ',
-					E('button', { 'class': 'btn cbi-button cbi-button-small', 'click': this.doOpen.bind(this, ip) }, _('打开后台')), ' ',
-					E('button', { 'class': 'btn cbi-button cbi-button-small', 'click': this.doHarden.bind(this, s['.name'], ip) }, _('关闭密码登录')), ' ',
-					E('button', { 'class': 'btn cbi-button cbi-button-small', 'click': this.doForget.bind(this, s['.name'], ip) }, _('清除凭据')), ' ',
-					E('button', { 'class': 'btn cbi-button cbi-button-small cbi-button-negative', 'click': this.doRemove.bind(this, s['.name']) }, _('移除'))
+					E('button', { 'class': 'btn cbi-button cbi-button-small', 'click': this.doProbe.bind(this, s['.name'], ip) }, _('Probe')), ' ',
+					E('button', { 'class': 'btn cbi-button cbi-button-small cbi-button-apply', 'click': this.doAuthorize.bind(this, s['.name'], ip) }, _('Authorize')), ' ',
+					E('button', { 'class': 'btn cbi-button cbi-button-small', 'click': this.doVerify.bind(this, s['.name'], ip) }, _('Inspect')), ' ',
+					E('button', { 'class': 'btn cbi-button cbi-button-small', 'click': this.doOpen.bind(this, ip) }, _('Open web UI')), ' ',
+					E('button', { 'class': 'btn cbi-button cbi-button-small', 'click': this.doHarden.bind(this, s['.name'], ip) }, _('Disable password login')), ' ',
+					E('button', { 'class': 'btn cbi-button cbi-button-small', 'click': this.doForget.bind(this, s['.name'], ip) }, _('Clear credential')), ' ',
+					E('button', { 'class': 'btn cbi-button cbi-button-small cbi-button-negative', 'click': this.doRemove.bind(this, s['.name']) }, _('Remove'))
 				])
 			]));
 		}.bind(this));
 
 		return E('div', {}, [
-			E('h2', {}, _('节点')),
+			E('h2', {}, _('Nodes')),
 			E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, _('已配置节点')),
+				E('h3', {}, _('Configured nodes')),
 				E('table', { 'class': 'table' }, rows),
 				E('div', { 'class': 'cbi-page-actions' }, [
 					E('button', {
 						'class': 'btn cbi-button cbi-button-apply',
 						'click': this.doTakeover.bind(this)
-					}, _('一键接管全部节点'))
+					}, _('Take over all nodes'))
 				]),
 				E('div', { 'id': 'mesh-lite-takeover', 'style': 'margin-top:8px' })
 			]),
 			E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, _('发现设备')),
+				E('h3', {}, _('Discovered devices')),
 				E('p', { 'class': 'cbi-section-descr' },
-					_('从 DHCP 租约与 ARP 表里列出同网段设备。添加后可用“授权”写入 SSH 公钥。')),
+					_('Lists devices on the same subnet from DHCP leases and the ARP table. After adding, use Authorize to install the SSH key.')),
 				E('div', { 'class': 'cbi-page-actions' }, [
 					E('button', {
 						'class': 'btn cbi-button cbi-button-neutral',
 						'click': this.doScan.bind(this)
-					}, _('扫描局域网'))
+					}, _('Scan LAN'))
 				]),
 				E('div', { 'id': 'mesh-lite-discovered', 'style': 'margin-top:8px' })
 			]),
 			E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, _('说明')),
+				E('h3', {}, _('Notes')),
 				E('ul', {}, [
-					E('li', {}, _('授权需要 sshpass；未安装时只能手工把公钥放到 AP 的 authorized_keys。')),
-					E('li', {}, _('“一键接管”使用同一个密码依次尝试所有节点，失败的节点会标红。')),
-					E('li', {}, _('清除凭据只删除本机保存的密码，不影响已写入 AP 的公钥。'))
+					E('li', {}, _('Authorization needs sshpass; without it you must copy the public key into the AP authorized_keys manually.')),
+					E('li', {}, _('"Take over all" tries the same password on every node in turn; failures are highlighted.')),
+					E('li', {}, _('Clearing the credential only removes the locally stored password; the key already installed on the AP is untouched.'))
 				])
 			])
 		]);
