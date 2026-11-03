@@ -53,8 +53,13 @@ jobs:
         id: meta
         run: |
           set -euo pipefail
-          VER="$(sed -n 's/^PKG_VERSION:=//p' Makefile | head -n1)"
-          REL="$(sed -n 's/^PKG_RELEASE:=//p' Makefile | head -n1)"
+          MK="luci-app-mesh-lite/Makefile"
+          VER="$(sed -n 's/^PKG_VERSION:=//p' "$MK" | head -n1)"
+          REL="$(sed -n 's/^PKG_RELEASE:=//p' "$MK" | head -n1)"
+          if [ -z "$VER" ] || [ -z "$REL" ]; then
+            echo "ERROR: cannot read PKG_VERSION/PKG_RELEASE from $MK" >&2
+            exit 1
+          fi
           DATE="$(date -u +%Y%m%d-%H%M)"
           SHORT="${GITHUB_SHA::7}"
           TAG="v${VER}-r${REL}-${DATE}-run${GITHUB_RUN_NUMBER}"
