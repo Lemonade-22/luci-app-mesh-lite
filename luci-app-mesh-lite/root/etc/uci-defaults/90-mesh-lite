@@ -1,0 +1,10 @@
+#!/bin/sh
+# First-boot setup for luci-app-mesh-lite.
+# Creates the private directory that stores per-AP override credentials.
+
+[ -f /etc/config/mesh_lite ] || exit 0
+
+mkdir -p /etc/mesh-lite
+chmod 700 /etc/mesh-lite
+
+exit 0

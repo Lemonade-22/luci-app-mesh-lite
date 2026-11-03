@@ -1,0 +1,52 @@
+{
+	"admin/network/mesh-lite": {
+		"title": "Mesh Lite",
+		"order": 35,
+		"action": {
+			"type": "firstchild"
+		},
+		"depends": {
+			"acl": [ "luci-app-mesh-lite" ]
+		}
+	},
+	"admin/network/mesh-lite/wizard": {
+		"title": "Quick Setup",
+		"order": 5,
+		"action": {
+			"type": "view",
+			"path": "mesh-lite/wizard"
+		}
+	},
+	"admin/network/mesh-lite/overview": {
+		"title": "Overview",
+		"order": 10,
+		"action": {
+			"type": "view",
+			"path": "mesh-lite/overview"
+		}
+	},
+	"admin/network/mesh-lite/profile": {
+		"title": "Configuration Profile",
+		"order": 20,
+		"action": {
+			"type": "view",
+			"path": "mesh-lite/profile"
+		}
+	},
+	"admin/network/mesh-lite/nodes": {
+		"title": "Nodes",
+		"order": 30,
+		"action": {
+			"type": "view",
+			"path": "mesh-lite/nodes"
+		}
+	},
+	"admin/network/mesh-lite/inspect": {
+		"title": "Inspect",
+		"order": 40,
+		"action": {
+			"type": "view",
+			"path": "mesh-lite/inspect"
+		}
+	}
+}

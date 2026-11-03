@@ -1,0 +1,18 @@
+{
+	"luci-app-mesh-lite": {
+		"description": "Grant access to Mesh Lite (AC/AP roles, 802.11k/v/r, node credentials)",
+		"read": {
+			"ubus": {
+				"mesh-lite": [ "status", "discover", "getkey", "poll", "verify_wireless", "radio_info" ],
+				"iwinfo": [ "info", "assoclist", "devices" ]
+			},
+			"uci": [ "mesh_lite", "wireless" ]
+		},
+		"write": {
+			"ubus": {
+				"mesh-lite": [ "genkey", "auth_probe", "auth_push", "auth_verify", "auth_forget", "apply_wireless", "apply_nodes", "harden" ]
+			},
+			"uci": [ "mesh_lite", "wireless" ]
+		}
+	}
+}

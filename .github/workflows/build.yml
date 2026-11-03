@@ -1,0 +1,126 @@
+name: Build ipk and apk
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - format: ipk
+            label: "OpenWrt 24.10 (opkg / ipk)"
+            sdk_index: "https://downloads.openwrt.org/releases/24.10.0/targets/x86/64/"
+          - format: apk
+            label: "OpenWrt snapshot (apk-tools 3 / apk)"
+            sdk_index: "https://downloads.openwrt.org/snapshots/targets/x86/64/"
+
+    name: build-${{ matrix.format }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build with official OpenWrt SDK (${{ matrix.label }})
+        run: bash Scripts/ci-build.sh "${{ matrix.format }}" "${{ matrix.sdk_index }}"
+
+      - name: Upload ${{ matrix.format }} artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.format }}
+          path: ${{ runner.temp }}/out/
+          retention-days: 30
+          if-no-files-found: error
+
+  release:
+    name: publish-release
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version and build tag
+        id: meta
+        run: |
+          set -euo pipefail
+          VER="$(sed -n 's/^PKG_VERSION:=//p' Makefile | head -n1)"
+          REL="$(sed -n 's/^PKG_RELEASE:=//p' Makefile | head -n1)"
+          DATE="$(date -u +%Y%m%d-%H%M)"
+          SHORT="${GITHUB_SHA::7}"
+          TAG="v${VER}-r${REL}-${DATE}-run${GITHUB_RUN_NUMBER}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "title=luci-app-mesh-lite v${VER}-r${REL} · ${SHORT} · ${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "short=${SHORT}" >> "$GITHUB_OUTPUT"
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Show collected packages
+        run: ls -lh dist
+
+      - name: Publish a dedicated release for this build
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.title }}
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          files: |
+            dist/*.ipk
+            dist/*.apk
+          body: |
+            Build of commit `${{ github.sha }}` (${{ steps.meta.outputs.short }}), run ${{ github.run_number }}.
+
+            Every build publishes its own release, so pick the version you need
+            from the release list instead of reusing a shared tag.
+
+            | File | Target |
+            | --- | --- |
+            | `luci-app-mesh-lite_*_all.ipk` | OpenWrt 24.10 and older (opkg) |
+            | `luci-app-mesh-lite-*.apk` | OpenWrt snapshot / 25.x (apk) |
+
+            Both packages are architecture independent (`Architecture: all`).
+            The app contains only LuCI JS/JSON and a POSIX shell rpcd plugin,
+            no compiled code, so a single file serves every device and every
+            target (x86, aarch64, arm, mips, mipsel).
+
+            ### Install on opkg (24.10)
+
+            ```sh
+            opkg install luci-app-mesh-lite_*_all.ipk
+            ```
+
+            ### Install on apk (snapshot / 25.x)
+
+            The `.apk` is signed by the OpenWrt SDK during the build; the signing
+            key is not distributed here, so a device reports
+            `ERROR: ...: UNTRUSTED signature` (exit code 99). Install with:
+
+            ```sh
+            apk add --allow-untrusted luci-app-mesh-lite-*.apk
+            ```
+
+            After installing, reload LuCI and open **Network → Mesh Lite**.
+
+            ### Requirements
+
+            - `luci-base`, `rpcd`, `dropbear` (installed automatically)
+            - full `wpad` (`wpad-openssl` / `wpad-wolfssl` / `wpad-mbedtls`)
+              for 802.11r; the overview page reports it when missing
+            - works under both fw3 and fw4 (the app installs no firewall rules)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,742 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en\n"
+
+msgid "%s：密钥可用"
+msgstr "%s: key works"
+
+msgid "%s：密钥登录失败"
+msgstr "%s: key login failed"
+
+msgid "%s：已经可用，无需授权。"
+msgstr "%s: already authorized, no action needed."
+
+msgid "%s：授权失败（%s）"
+msgstr "%s: authorization failed (%s)"
+
+msgid "%s：授权成功，已记住该台密码。"
+msgstr "%s: authorized; password saved for this node."
+
+msgid "%s：未授权（端口 22 %s，sshpass %s）"
+msgstr "%s: not authorized (port 22 %s, sshpass %s)"
+
+msgid "%s：连接正常，主机名 %s"
+msgstr "%s: connected, hostname %s"
+
+msgid "%s：默认凭据命中，授权成功。"
+msgstr "%s: default credentials matched; authorized."
+
+msgid "11k"
+msgstr "11k"
+
+msgid "11v"
+msgstr "11v"
+
+msgid "2.4G 信道"
+msgstr "2.4G channel"
+
+msgid "2.4G 功率（dBm）"
+msgstr "2.4G tx power (dBm)"
+
+msgid "2.4G 带宽"
+msgstr "2.4G bandwidth"
+
+msgid "2.4G 开启 802.11r"
+msgstr "Enable 802.11r on 2.4G"
+
+msgid "4 位十六进制，例如 a1b2。全屋必须一致。"
+msgstr "Four hex digits, e.g. a1b2. Must be identical across the whole network."
+
+msgid "5G 信道"
+msgstr "5G channel"
+
+msgid "5G 功率（dBm）"
+msgstr "5G tx power (dBm)"
+
+msgid "5G 带宽"
+msgstr "5G bandwidth"
+
+msgid "5G 开启 802.11r"
+msgstr "Enable 802.11r on 5G"
+
+msgid "802.11k"
+msgstr "802.11k"
+
+msgid "802.11r"
+msgstr "802.11r"
+
+msgid "802.11r 支持"
+msgstr "802.11r support"
+
+msgid "802.11r（2.4G）"
+msgstr "802.11r (2.4G)"
+
+msgid "802.11r（5G）"
+msgstr "802.11r (5G)"
+
+msgid "802.11v"
+msgstr "802.11v"
+
+msgid "AC 负责统一配置与巡检；AP 只接受配置；独立模式不参与组网。"
+msgstr "AC handles unified configuration and inspection; AP only receives configuration; standalone mode is not part of the mesh."
+
+msgid "AC 通过 SSH 拉取各 AP 状态的周期。"
+msgstr "How often the AC pulls each AP state over SSH."
+
+msgid "AC（控制器）"
+msgstr "AC (controller)"
+
+msgid "AP 离线时，单次 SSH 操作的最长等待时间。默认 10 秒。"
+msgstr "Maximum wait for a single SSH operation when an AP is offline. Default 10 seconds."
+
+msgid "AP（接入点）"
+msgstr "AP (access point)"
+
+msgid "Beacon 间隔"
+msgstr "Beacon interval"
+
+msgid "Beacon 间隔（ms）"
+msgstr "Beacon interval (ms)"
+
+msgid "FT over DS"
+msgstr "FT over DS"
+
+msgid "IP"
+msgstr "IP"
+
+msgid "LAN 地址"
+msgstr "LAN address"
+
+msgid "MAC"
+msgstr "MAC"
+
+msgid "MD"
+msgstr "MD"
+
+msgid "Mesh Lite"
+msgstr "Mesh Lite"
+
+msgid "SSH 密钥"
+msgstr "SSH key"
+
+msgid "SSH 超时（秒）"
+msgstr "SSH timeout (seconds)"
+
+msgid "SSID"
+msgstr "SSID"
+
+msgid "SSID 不能为空。"
+msgstr "SSID must not be empty."
+
+msgid "WPA 密码至少 8 位；开放网络请把加密方式设为 none。"
+msgstr "WPA password must be at least 8 characters; use encryption \"none\" for an open network."
+
+msgid "Wi-Fi 驱动包（wpad）"
+msgstr "Wi-Fi driver package (wpad)"
+
+msgid "auto 或 1-13"
+msgstr "auto or 1-13"
+
+msgid "auto 或 36-165"
+msgstr "auto or 36-165"
+
+msgid "sshpass（首次授权自动化）"
+msgstr "sshpass (automates first-time authorization)"
+
+msgid "“一键接管”使用同一个密码依次尝试所有节点，失败的节点会标红。"
+msgstr "\"Take over all\" tries the same password on every node in turn; failures are highlighted."
+
+msgid "“应用到模板”只保存模板；“重启 AP 无线”会把模板下发到已纳管的 AP（节点管理在 M3 提供）。"
+msgstr "\"Apply to template\" only saves the template; \"restart AP radios\" pushes it to managed APs."
+
+msgid "一致 %d 台 · 有差异 %d 台 · 不可达 %d 台"
+msgstr "%d in sync · %d with differences · %d unreachable"
+
+msgid "一键接管全部节点"
+msgstr "Take over all nodes"
+
+msgid "一键生成 SSH 密钥"
+msgstr "Generate SSH key"
+
+msgid "一键生成模板"
+msgstr "Generate template"
+
+msgid "一键配置"
+msgstr "Quick setup"
+
+msgid "下发不会自动发生。请到“配置模板”页，用【应用到模板并重启 AP 无线】或【应用到模板并重启本机和 AP 无线】执行。"
+msgstr "Nothing is pushed automatically. Go to the Configuration Profile page and use \"Apply to template and restart AP radios\" or the split-button alternative."
+
+msgid "不修改"
+msgstr "Do not change"
+
+msgid "不可用：需要满血 wpad（wpad-openssl / wpad-wolfssl / wpad-mbedtls）"
+msgstr "Unavailable: requires a full wpad (wpad-openssl / wpad-wolfssl / wpad-mbedtls)"
+
+msgid "不可达或读取失败：%s"
+msgstr "Unreachable or read failed: %s"
+
+msgid "不建议：2.4G 开 r 容易抖动。"
+msgstr "Not recommended: 802.11r on 2.4G tends to flap."
+
+msgid "不通"
+msgstr "closed"
+
+msgid "主机名"
+msgstr "Hostname"
+
+msgid "主机名：%s · 运行 %s 秒"
+msgstr "Hostname: %s · uptime %s s"
+
+msgid "从 DHCP 租约与 ARP 表里列出同网段设备。添加后可用“授权”写入 SSH 公钥。"
+msgstr "Lists devices on the same subnet from DHCP leases and the ARP table. After adding, use Authorize to install the SSH key."
+
+msgid "从节点列表移除？不会影响 AP 本身。"
+msgstr "Remove from the node list? The AP itself is not affected."
+
+msgid "保存失败：%s"
+msgstr "Save failed: %s"
+
+msgid "信道"
+msgstr "Channel"
+
+msgid "信道与功率始终由驱动和现有配置决定；需要精确控制请到“配置模板”页。"
+msgstr "Channel and tx power are controlled by the driver and existing configuration; use the Configuration Profile page for precise control."
+
+msgid "允许 FT over DS"
+msgstr "Allow FT over DS"
+
+msgid "公钥限制来源网段"
+msgstr "Restrict public key to the LAN subnet"
+
+msgid "关闭"
+msgstr "Disable"
+
+msgid "写入 AP 时为公钥附加 from=\"LAN 网段\" 限制。"
+msgstr "Add a from=\"LAN subnet\" restriction to the public key when writing it to an AP."
+
+msgid "前往配置模板"
+msgstr "Open Configuration Profile"
+
+msgid "前往配置模板页应用"
+msgstr "Open Configuration Profile to apply"
+
+msgid "加密"
+msgstr "Encryption"
+
+msgid "加密方式"
+msgstr "Encryption"
+
+msgid "单独凭据"
+msgstr "Per-node credential"
+
+msgid "发现设备"
+msgstr "Discovered devices"
+
+msgid "只生成模板，不下发。最少填 SSID 与密码；高级项留空即自动生成。保存后到“配置模板”页执行下发。"
+msgstr "Generates the template only, no push. Fill in SSID and password; advanced fields left empty are generated automatically. Apply from the Configuration Profile page afterwards."
+
+msgid "可用"
+msgstr "Available"
+
+msgid "名称"
+msgstr "Name"
+
+msgid "否"
+msgstr "No"
+
+msgid "启用 802.11k"
+msgstr "Enable 802.11k"
+
+msgid "启用 802.11k（邻居报告）"
+msgstr "Enable 802.11k (neighbor reports)"
+
+msgid "启用 802.11r（FT）"
+msgstr "Enable 802.11r (FT)"
+
+msgid "启用 802.11v"
+msgstr "Enable 802.11v"
+
+msgid "启用 802.11v（BSS 转换管理）"
+msgstr "Enable 802.11v (BSS transition management)"
+
+msgid "基本信息"
+msgstr "Basic settings"
+
+msgid "复制"
+msgstr "Copy"
+
+msgid "失败"
+msgstr "Failed"
+
+msgid "完成：成功 %d 台，失败 %d 台。"
+msgstr "Done: %d succeeded, %d failed."
+
+msgid "家庭 PSK 场景推荐开启，无需配置 R0KH/R1KH。"
+msgstr "Recommended for home PSK networks; no R0KH/R1KH configuration needed."
+
+msgid "密码"
+msgstr "Password"
+
+msgid "密钥可用"
+msgstr "Key works"
+
+msgid "密钥已存在。重新生成会使已授权的 AP 全部失效，确定继续？"
+msgstr "A key already exists. Regenerating invalidates all authorized APs. Continue?"
+
+msgid "密钥已就绪：%s"
+msgstr "Key ready: %s"
+
+msgid "导出配置"
+msgstr "Export configuration"
+
+msgid "射频"
+msgstr "Radio"
+
+msgid "射频现状（本页不会修改）"
+msgstr "Radio status (not modified by this page)"
+
+msgid "将写入模板的值"
+msgstr "Values to write into the template"
+
+msgid "尚未巡检。"
+msgstr "Not inspected yet."
+
+msgid "尚未生成密钥。生成后可用于免密登录各 AP。"
+msgstr "No key yet. Once generated it allows passwordless login to APs."
+
+msgid "巡检"
+msgstr "Inspect"
+
+msgid "巡检完成"
+msgstr "Inspection complete"
+
+msgid "巡检间隔（秒）"
+msgstr "Inspection interval (seconds)"
+
+msgid "已启用"
+msgstr "Enabled"
+
+msgid "已复制到剪贴板（若浏览器允许）。"
+msgstr "Copied to clipboard (if the browser allows it)."
+
+msgid "已安装"
+msgstr "Installed"
+
+msgid "已指定"
+msgstr "Overridden"
+
+msgid "已清除 %s 的凭据。"
+msgstr "Cleared the credential for %s."
+
+msgid "已生成"
+msgstr "Generated"
+
+msgid "已生成 ed25519 密钥。指纹：%s"
+msgstr "ed25519 key generated. Fingerprint: %s"
+
+msgid "已装"
+msgstr "installed"
+
+msgid "已配置节点"
+msgstr "Configured nodes"
+
+msgid "应用"
+msgstr "Apply"
+
+msgid "应用到模板并重启 AP 无线"
+msgstr "Apply to template and restart AP radios"
+
+msgid "应用到模板并重启本机和 AP 无线"
+msgstr "Apply to template and restart local and AP radios"
+
+msgid "应用失败：%s"
+msgstr "Apply failed: %s"
+
+msgid "开启"
+msgstr "Enable"
+
+msgid "开启后由 SSID 派生固定值，保证全屋一致。"
+msgstr "When enabled, a fixed value is derived from the SSID so the whole network matches."
+
+msgid "开始巡检"
+msgstr "Start inspection"
+
+msgid "开放"
+msgstr "open"
+
+msgid "开放网络请把加密方式设为 none。"
+msgstr "For an open network, set encryption to none."
+
+msgid "开放（无密码）"
+msgstr "Open (no password)"
+
+msgid "强制关闭"
+msgstr "Force off"
+
+msgid "强制开启"
+msgstr "Force on"
+
+msgid "当前信道"
+msgstr "Current channel"
+
+msgid "当前功率（驱动默认）"
+msgstr "Current tx power (driver default)"
+
+msgid "恢复全自动"
+msgstr "Reset to fully automatic"
+
+msgid "打开后台"
+msgstr "Open web UI"
+
+msgid "扫描中…"
+msgstr "Scanning…"
+
+msgid "扫描局域网"
+msgstr "Scan LAN"
+
+msgid "批量授权完成：成功 %d，失败 %d"
+msgstr "Batch authorization done: %d succeeded, %d failed"
+
+msgid "把下面内容保存为 profile.json，可在其他 AP 上导入。注意：包含 Wi-Fi 密码。"
+msgstr "Save the following as profile.json to import on other APs. Note: it contains the Wi-Fi password."
+
+msgid "授权"
+msgstr "Authorize"
+
+msgid "授权需要 sshpass；未安装时只能手工把公钥放到 AP 的 authorized_keys。"
+msgstr "Authorization needs sshpass; without it you must copy the public key into the AP authorized_keys manually."
+
+msgid "探测"
+msgstr "Probe"
+
+msgid "探测失败：%s"
+msgstr "Probe failed: %s"
+
+msgid "接口"
+msgstr "Interface"
+
+msgid "操作"
+msgstr "Actions"
+
+msgid "无"
+msgstr "none"
+
+msgid "无响应"
+msgstr "No response"
+
+msgid "无法回读运行态：%s"
+msgstr "Cannot read runtime state: %s"
+
+msgid "无线模板"
+msgstr "Wireless template"
+
+msgid "是"
+msgstr "Yes"
+
+msgid "更多应用方式"
+msgstr "More apply options"
+
+msgid "有"
+msgstr "yes"
+
+msgid "未启用"
+msgstr "Disabled"
+
+msgid "未安装 sshpass，无法自动授权。请先安装 sshpass，或手工把公钥放到 AP。"
+msgstr "sshpass is not installed, so automatic authorization is unavailable. Install sshpass or place the public key on the AP manually."
+
+msgid "未安装，首次授权将退化为手动输入密码"
+msgstr "Not installed; first authorization falls back to entering the password manually"
+
+msgid "未检测到"
+msgstr "Not detected"
+
+msgid "未生成"
+msgstr "Not generated"
+
+msgid "未知"
+msgstr "Unknown"
+
+msgid "未知原因"
+msgstr "Unknown reason"
+
+msgid "未知错误"
+msgstr "Unknown error"
+
+msgid "未装"
+msgstr "not installed"
+
+msgid "未设置"
+msgstr "Not set"
+
+msgid "本地生成 PMK"
+msgstr "Generate PMK locally"
+
+msgid "本地生成 PMK（FT-PSK）"
+msgstr "Generate PMK locally (FT-PSK)"
+
+msgid "本机无线信息"
+msgstr "Local wireless information"
+
+msgid "本机没有无线接口配置。若这台设备只当 AC，这是正常的。"
+msgstr "No wireless interfaces on this device. This is normal if it only acts as an AC."
+
+msgid "本机角色"
+msgstr "Local role"
+
+msgid "来源"
+msgstr "Source"
+
+msgid "模式"
+msgstr "Mode"
+
+msgid "模板将写入的值"
+msgstr "Values written into the template"
+
+msgid "模板已保存。尚未配置 AP 节点，跳过下发（请先在“节点”页添加）。"
+msgstr "Template saved. No AP nodes configured, skipping push (add nodes on the Nodes page first)."
+
+msgid "模板已保存并下发到 %d 台 AP。"
+msgstr "Template saved and pushed to %d AP(s)."
+
+msgid "模板已保存，但 AP 下发未成功：%s"
+msgstr "Template saved, but pushing to APs failed: %s"
+
+msgid "模板已保存，尚未下发。"
+msgstr "Template saved, not pushed yet."
+
+msgid "模板已保存：SSID %s，移动域 %s"
+msgstr "Template saved: SSID %s, mobility domain %s"
+
+msgid "正在处理 %s（%d/%d）…"
+msgstr "Processing %s (%d/%d)…"
+
+msgid "正在巡检 %s（%d/%d）…"
+msgstr "Inspecting %s (%d/%d)…"
+
+msgid "正在重载无线并回读…"
+msgstr "Reloading wireless and reading back…"
+
+msgid "没有发现其他设备。"
+msgstr "No other devices found."
+
+msgid "没有可应用的 AP 接口。"
+msgstr "No AP interfaces available to apply."
+
+msgid "没有新增节点（可能已存在或未勾选）。"
+msgstr "No nodes added (they may already exist or none were selected)."
+
+msgid "没有检测到射频。若这台设备只当 AC，这是正常的。"
+msgstr "No radios detected. This is normal if this device only acts as an AC."
+
+msgid "没有读到 hostapd 接口。请确认已安装满血 wpad 且无线已启动。"
+msgstr "No hostapd interfaces found. Make sure a full wpad is installed and wireless is running."
+
+msgid "添加选中的设备为节点"
+msgstr "Add selected devices as nodes"
+
+msgid "清除 %s 的单独凭据？"
+msgstr "Clear the per-node credential for %s?"
+
+msgid "清除凭据"
+msgstr "Clear credential"
+
+msgid "清除凭据只删除本机保存的密码，不影响已写入 AP 的公钥。"
+msgstr "Clearing the credential only removes the locally stored password; the key already installed on the AP is untouched."
+
+msgid "清除结果"
+msgstr "Clear results"
+
+msgid "漫游参数（802.11k/v 与 FT）"
+msgstr "Roaming parameters (802.11k/v and FT)"
+
+msgid "点击“开始巡检”后逐台显示结果。"
+msgstr "Results appear node by node after you click Start inspection."
+
+msgid "状态"
+msgstr "Status"
+
+msgid "独立（单机）"
+msgstr "Standalone"
+
+msgid "生成失败：%s"
+msgstr "Generation failed: %s"
+
+msgid "由驱动决定"
+msgstr "Determined by driver"
+
+msgid "留空则为 100。"
+msgstr "Leave empty for 100."
+
+msgid "留空则由 SSID 派生。"
+msgstr "Leave empty to derive from the SSID."
+
+msgid "留空的项按“自动”取值；填写覆盖值后这里会显示“已指定”。"
+msgstr "Empty fields use the automatic value; filled fields show as overridden here."
+
+msgid "留空表示不修改；auto 表示自动。"
+msgstr "Empty means do not change; auto means automatic."
+
+msgid "移动域必须是 4 位十六进制，例如 a1b2"
+msgstr "Mobility domain must be four hex digits, e.g. a1b2"
+
+msgid "移动域必须是 4 位十六进制，例如 a1b2。"
+msgstr "Mobility domain must be four hex digits, e.g. a1b2."
+
+msgid "移动域（MD）"
+msgstr "Mobility domain (MD)"
+
+msgid "移除"
+msgstr "Remove"
+
+msgid "结果"
+msgstr "Results"
+
+msgid "统一凭据"
+msgstr "Unified credential"
+
+msgid "统一密码：将对 %d 台节点尝试授权"
+msgstr "Unified password: will try to authorize %d node(s)"
+
+msgid "统一配置本机的 AC/AP 角色与 802.11k/v/r 参数。修改后点击“保存并应用”。"
+msgstr "Configure this device role and 802.11k/v/r parameters. Click Save & Apply after changes."
+
+msgid "自动"
+msgstr "Auto"
+
+msgid "自动生成移动域"
+msgstr "Derive mobility domain automatically"
+
+msgid "自动生成移动域（MD）"
+msgstr "Derive mobility domain (MD) automatically"
+
+msgid "自动（关闭）"
+msgstr "Auto (off)"
+
+msgid "自动（开启）"
+msgstr "Auto (on)"
+
+msgid "节点"
+msgstr "Nodes"
+
+msgid "角色与漫游"
+msgstr "Role and roaming"
+
+msgid "设备"
+msgstr "Device"
+
+msgid "说明"
+msgstr "Notes"
+
+msgid "请先填写 SSID。"
+msgstr "Please fill in the SSID first."
+
+msgid "请输入 %s 的 SSH 密码（root 用户）"
+msgstr "Enter the SSH password for %s (root user)"
+
+msgid "读取中…"
+msgstr "Reading…"
+
+msgid "读取本机无线信息"
+msgstr "Read local wireless information"
+
+msgid "读取本机（可能只当 AC，也可能同时是 AP）的无线配置与运行态，确认模板是否已正确落盘。"
+msgstr "Read this device wireless configuration and runtime state (it may act only as an AC or also as an AP) to confirm the template was applied."
+
+msgid "调用失败：%s"
+msgstr "Call failed: %s"
+
+msgid "运行态（hostapd 回读）"
+msgstr "Runtime state (hostapd read-back)"
+
+msgid "运行环境检查"
+msgstr "Environment checks"
+
+msgid "还没有节点。"
+msgstr "No nodes yet."
+
+msgid "还没有节点。先扫描或手动添加。"
+msgstr "No nodes yet. Scan or add one manually."
+
+msgid "还没有节点，请先到“节点”页添加。"
+msgstr "No nodes yet; add them on the Nodes page first."
+
+msgid "这些项不填就按默认规则生成；填了以填写值为准。"
+msgstr "Leave these empty to use the default rules; filled values take precedence."
+
+msgid "这里定义一套全屋统一的 Wi-Fi 与漫游参数。应用后写入本机所有 AP 接口，并重载无线。"
+msgstr "Define one set of Wi-Fi and roaming parameters for the whole network. Applying writes them to every local AP interface and reloads wireless."
+
+msgid "通过 SSH 逐台读取 AP 的实际无线配置，与当前模板对比。严格串行：上一台返回后才请求下一台。"
+msgstr "Reads each AP actual wireless configuration over SSH and compares it with the current template. Strictly serial: the next AP is only contacted after the previous one returns."
+
+msgid "配置已写入并重载本机无线。"
+msgstr "Configuration written and local wireless reloaded."
+
+msgid "配置模板"
+msgstr "Configuration Profile"
+
+msgid "重新生成密钥"
+msgstr "Regenerate key"
+
+msgid "防火墙"
+msgstr "Firewall"
+
+msgid "隐藏 SSID"
+msgstr "Hide SSID"
+
+msgid "需要满血 wpad；建议只在 5G 开启，2.4G 开 r 容易抖动。"
+msgstr "Requires a full wpad; only enable on 5G, 802.11r on 2.4G tends to flap."
+
+msgid "项目"
+msgstr "Item"
+
+msgid "频段"
+msgstr "Band"
+
+msgid "高级（留空即自动）"
+msgstr "Advanced (empty = automatic)"
+
+msgid "默认凭据"
+msgstr "Default credential"
+
+msgid "（自动）"
+msgstr "(auto)"
+
+msgid "导入配置"
+msgstr "Import configuration"
+
+msgid "粘贴 profile.json 内容"
+msgstr "Paste profile.json content"
+
+msgid "粘贴或选择 profile.json 后点击“导入”。只写入模板，不会自动下发。"
+msgstr "Paste or choose profile.json and click Import. It only writes the template; nothing is pushed."
+
+msgid "导入"
+msgstr "Import"
+
+msgid "取消"
+msgstr "Cancel"
+
+msgid "JSON 解析失败：%s"
+msgstr "JSON parse failed: %s"
+
+msgid "导入内容不是有效的配置对象。"
+msgstr "The imported content is not a valid configuration object."
+
+msgid "配置已导入到模板。"
+msgstr "Configuration imported into the template."
+
+msgid "关闭密码登录"
+msgstr "Disable password login"
+
+msgid "在 %s 上关闭 SSH 密码登录？请先确认密钥登录可用，否则可能失联。"
+msgstr "Disable SSH password login on %s? Make sure key login works first, or you may lock yourself out."
+
+msgid "%s：已关闭密码登录。"
+msgstr "%s: password login disabled."
+
+msgid "%s：加固失败（%s）"
+msgstr "%s: hardening failed (%s)"

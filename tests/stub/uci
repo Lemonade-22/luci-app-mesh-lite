@@ -1,0 +1,68 @@
+#!/bin/sh
+# uci stub for unit tests (read-only subset).
+
+[ "$1" = "-q" ] && shift
+
+case "$1" in
+	show)
+		if [ "$2" = "wireless" ]; then
+			cat <<'EOF'
+wireless.radio0=wifi-device
+wireless.radio1=wifi-device
+wireless.default_radio0=wifi-iface
+wireless.default_radio1=wifi-iface
+EOF
+		elif [ "$2" = "mesh_lite" ]; then
+			cat <<'EOF'
+mesh_lite.general=settings
+mesh_lite.profile=profile
+EOF
+		fi
+		;;
+	get)
+		case "$2" in
+			wireless.radio0.band) echo 2g ;;
+			wireless.radio0.channel) echo 6 ;;
+			wireless.radio0.txpower) echo '' ;;
+			wireless.radio0.hwmode) echo 11g ;;
+			wireless.radio0.htmode) echo HT20 ;;
+			wireless.radio1.band) echo 5g ;;
+			wireless.radio1.channel) echo 36 ;;
+			wireless.radio1.txpower) echo '' ;;
+			wireless.radio1.hwmode) echo 11a ;;
+			wireless.radio1.htmode) echo VHT80 ;;
+			wireless.default_radio0.device) echo radio0 ;;
+			wireless.default_radio0.mode) echo ap ;;
+			wireless.default_radio0.ssid) echo Home ;;
+			wireless.default_radio0.encryption) echo psk2 ;;
+			wireless.default_radio0.ieee80211r) echo 1 ;;
+			wireless.default_radio0.mobility_domain) echo a1b2 ;;
+			wireless.default_radio0.ieee80211k) echo 1 ;;
+			wireless.default_radio0.bss_transition) echo 1 ;;
+			wireless.default_radio0.hidden) echo 0 ;;
+			wireless.default_radio0.key) echo secret123 ;;
+			wireless.default_radio1.device) echo radio1 ;;
+			wireless.default_radio1.mode) echo ap ;;
+			wireless.default_radio1.ssid) echo Home ;;
+			wireless.default_radio1.encryption) echo psk2 ;;
+			wireless.default_radio1.ieee80211r) echo 1 ;;
+			wireless.default_radio1.mobility_domain) echo a1b2 ;;
+			wireless.default_radio1.ieee80211k) echo 1 ;;
+			wireless.default_radio1.bss_transition) echo 1 ;;
+			wireless.default_radio1.hidden) echo 0 ;;
+			wireless.default_radio1.key) echo secret123 ;;
+			mesh_lite.profile.ssid) echo 'Home' ;;
+			mesh_lite.profile.key) echo 'secret123' ;;
+			mesh_lite.profile.encryption) echo 'psk2' ;;
+			mesh_lite.profile.beacon) echo '100' ;;
+			mesh_lite.profile.enable_r_2g) echo '0' ;;
+			mesh_lite.profile.enable_r_5g) echo '1' ;;
+			mesh_lite.general.enable_k) echo '1' ;;
+			mesh_lite.general.enable_v) echo '1' ;;
+			mesh_lite.general.ft_over_ds) echo '1' ;;
+			mesh_lite.general.ft_psk_generate_local) echo '1' ;;
+			mesh_lite.general.restrict_key_source) echo '0' ;;
+			*) echo '' ;;
+		esac
+		;;
+esac

@@ -1,0 +1,19 @@
+#!/bin/sh
+# iwinfo stub for unit tests.
+
+case "$1" in
+	radio0)
+		cat <<'EOF'
+radio0    ESSID: "Home"
+          Mode: Master  Channel: 6 (2.437 GHz)  HT Mode: HT20
+          Tx-Power: 20 dBm  Link Quality: 70/70  Signal: -30 dBm  Noise: -95 dBm
+EOF
+		;;
+	radio1)
+		cat <<'EOF'
+radio1    ESSID: "Home"
+          Mode: Master  Channel: 36 (5.180 GHz)  HT Mode: VHT80
+          Tx-Power: 23 dBm  Link Quality: 70/70  Signal: -30 dBm  Noise: -95 dBm
+EOF
+		;;
+esac

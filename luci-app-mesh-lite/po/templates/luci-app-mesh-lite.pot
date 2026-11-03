@@ -1,0 +1,740 @@
+msgid ""
+msgstr ""
+
+msgid "%s：密钥可用"
+msgstr ""
+
+msgid "%s：密钥登录失败"
+msgstr ""
+
+msgid "%s：已经可用，无需授权。"
+msgstr ""
+
+msgid "%s：授权失败（%s）"
+msgstr ""
+
+msgid "%s：授权成功，已记住该台密码。"
+msgstr ""
+
+msgid "%s：未授权（端口 22 %s，sshpass %s）"
+msgstr ""
+
+msgid "%s：连接正常，主机名 %s"
+msgstr ""
+
+msgid "%s：默认凭据命中，授权成功。"
+msgstr ""
+
+msgid "11k"
+msgstr ""
+
+msgid "11v"
+msgstr ""
+
+msgid "2.4G 信道"
+msgstr ""
+
+msgid "2.4G 功率（dBm）"
+msgstr ""
+
+msgid "2.4G 带宽"
+msgstr ""
+
+msgid "2.4G 开启 802.11r"
+msgstr ""
+
+msgid "4 位十六进制，例如 a1b2。全屋必须一致。"
+msgstr ""
+
+msgid "5G 信道"
+msgstr ""
+
+msgid "5G 功率（dBm）"
+msgstr ""
+
+msgid "5G 带宽"
+msgstr ""
+
+msgid "5G 开启 802.11r"
+msgstr ""
+
+msgid "802.11k"
+msgstr ""
+
+msgid "802.11r"
+msgstr ""
+
+msgid "802.11r 支持"
+msgstr ""
+
+msgid "802.11r（2.4G）"
+msgstr ""
+
+msgid "802.11r（5G）"
+msgstr ""
+
+msgid "802.11v"
+msgstr ""
+
+msgid "AC 负责统一配置与巡检；AP 只接受配置；独立模式不参与组网。"
+msgstr ""
+
+msgid "AC 通过 SSH 拉取各 AP 状态的周期。"
+msgstr ""
+
+msgid "AC（控制器）"
+msgstr ""
+
+msgid "AP 离线时，单次 SSH 操作的最长等待时间。默认 10 秒。"
+msgstr ""
+
+msgid "AP（接入点）"
+msgstr ""
+
+msgid "Beacon 间隔"
+msgstr ""
+
+msgid "Beacon 间隔（ms）"
+msgstr ""
+
+msgid "FT over DS"
+msgstr ""
+
+msgid "IP"
+msgstr ""
+
+msgid "LAN 地址"
+msgstr ""
+
+msgid "MAC"
+msgstr ""
+
+msgid "MD"
+msgstr ""
+
+msgid "Mesh Lite"
+msgstr ""
+
+msgid "SSH 密钥"
+msgstr ""
+
+msgid "SSH 超时（秒）"
+msgstr ""
+
+msgid "SSID"
+msgstr ""
+
+msgid "SSID 不能为空。"
+msgstr ""
+
+msgid "WPA 密码至少 8 位；开放网络请把加密方式设为 none。"
+msgstr ""
+
+msgid "Wi-Fi 驱动包（wpad）"
+msgstr ""
+
+msgid "auto 或 1-13"
+msgstr ""
+
+msgid "auto 或 36-165"
+msgstr ""
+
+msgid "sshpass（首次授权自动化）"
+msgstr ""
+
+msgid "“一键接管”使用同一个密码依次尝试所有节点，失败的节点会标红。"
+msgstr ""
+
+msgid "“应用到模板”只保存模板；“重启 AP 无线”会把模板下发到已纳管的 AP（节点管理在 M3 提供）。"
+msgstr ""
+
+msgid "一致 %d 台 · 有差异 %d 台 · 不可达 %d 台"
+msgstr ""
+
+msgid "一键接管全部节点"
+msgstr ""
+
+msgid "一键生成 SSH 密钥"
+msgstr ""
+
+msgid "一键生成模板"
+msgstr ""
+
+msgid "一键配置"
+msgstr ""
+
+msgid "下发不会自动发生。请到“配置模板”页，用【应用到模板并重启 AP 无线】或【应用到模板并重启本机和 AP 无线】执行。"
+msgstr ""
+
+msgid "不修改"
+msgstr ""
+
+msgid "不可用：需要满血 wpad（wpad-openssl / wpad-wolfssl / wpad-mbedtls）"
+msgstr ""
+
+msgid "不可达或读取失败：%s"
+msgstr ""
+
+msgid "不建议：2.4G 开 r 容易抖动。"
+msgstr ""
+
+msgid "不通"
+msgstr ""
+
+msgid "主机名"
+msgstr ""
+
+msgid "主机名：%s · 运行 %s 秒"
+msgstr ""
+
+msgid "从 DHCP 租约与 ARP 表里列出同网段设备。添加后可用“授权”写入 SSH 公钥。"
+msgstr ""
+
+msgid "从节点列表移除？不会影响 AP 本身。"
+msgstr ""
+
+msgid "保存失败：%s"
+msgstr ""
+
+msgid "信道"
+msgstr ""
+
+msgid "信道与功率始终由驱动和现有配置决定；需要精确控制请到“配置模板”页。"
+msgstr ""
+
+msgid "允许 FT over DS"
+msgstr ""
+
+msgid "公钥限制来源网段"
+msgstr ""
+
+msgid "关闭"
+msgstr ""
+
+msgid "写入 AP 时为公钥附加 from=\"LAN 网段\" 限制。"
+msgstr ""
+
+msgid "前往配置模板"
+msgstr ""
+
+msgid "前往配置模板页应用"
+msgstr ""
+
+msgid "加密"
+msgstr ""
+
+msgid "加密方式"
+msgstr ""
+
+msgid "单独凭据"
+msgstr ""
+
+msgid "发现设备"
+msgstr ""
+
+msgid "只生成模板，不下发。最少填 SSID 与密码；高级项留空即自动生成。保存后到“配置模板”页执行下发。"
+msgstr ""
+
+msgid "可用"
+msgstr ""
+
+msgid "名称"
+msgstr ""
+
+msgid "否"
+msgstr ""
+
+msgid "启用 802.11k"
+msgstr ""
+
+msgid "启用 802.11k（邻居报告）"
+msgstr ""
+
+msgid "启用 802.11r（FT）"
+msgstr ""
+
+msgid "启用 802.11v"
+msgstr ""
+
+msgid "启用 802.11v（BSS 转换管理）"
+msgstr ""
+
+msgid "基本信息"
+msgstr ""
+
+msgid "复制"
+msgstr ""
+
+msgid "失败"
+msgstr ""
+
+msgid "完成：成功 %d 台，失败 %d 台。"
+msgstr ""
+
+msgid "家庭 PSK 场景推荐开启，无需配置 R0KH/R1KH。"
+msgstr ""
+
+msgid "密码"
+msgstr ""
+
+msgid "密钥可用"
+msgstr ""
+
+msgid "密钥已存在。重新生成会使已授权的 AP 全部失效，确定继续？"
+msgstr ""
+
+msgid "密钥已就绪：%s"
+msgstr ""
+
+msgid "导出配置"
+msgstr ""
+
+msgid "射频"
+msgstr ""
+
+msgid "射频现状（本页不会修改）"
+msgstr ""
+
+msgid "将写入模板的值"
+msgstr ""
+
+msgid "尚未巡检。"
+msgstr ""
+
+msgid "尚未生成密钥。生成后可用于免密登录各 AP。"
+msgstr ""
+
+msgid "巡检"
+msgstr ""
+
+msgid "巡检完成"
+msgstr ""
+
+msgid "巡检间隔（秒）"
+msgstr ""
+
+msgid "已启用"
+msgstr ""
+
+msgid "已复制到剪贴板（若浏览器允许）。"
+msgstr ""
+
+msgid "已安装"
+msgstr ""
+
+msgid "已指定"
+msgstr ""
+
+msgid "已清除 %s 的凭据。"
+msgstr ""
+
+msgid "已生成"
+msgstr ""
+
+msgid "已生成 ed25519 密钥。指纹：%s"
+msgstr ""
+
+msgid "已装"
+msgstr ""
+
+msgid "已配置节点"
+msgstr ""
+
+msgid "应用"
+msgstr ""
+
+msgid "应用到模板并重启 AP 无线"
+msgstr ""
+
+msgid "应用到模板并重启本机和 AP 无线"
+msgstr ""
+
+msgid "应用失败：%s"
+msgstr ""
+
+msgid "开启"
+msgstr ""
+
+msgid "开启后由 SSID 派生固定值，保证全屋一致。"
+msgstr ""
+
+msgid "开始巡检"
+msgstr ""
+
+msgid "开放"
+msgstr ""
+
+msgid "开放网络请把加密方式设为 none。"
+msgstr ""
+
+msgid "开放（无密码）"
+msgstr ""
+
+msgid "强制关闭"
+msgstr ""
+
+msgid "强制开启"
+msgstr ""
+
+msgid "当前信道"
+msgstr ""
+
+msgid "当前功率（驱动默认）"
+msgstr ""
+
+msgid "恢复全自动"
+msgstr ""
+
+msgid "打开后台"
+msgstr ""
+
+msgid "扫描中…"
+msgstr ""
+
+msgid "扫描局域网"
+msgstr ""
+
+msgid "批量授权完成：成功 %d，失败 %d"
+msgstr ""
+
+msgid "把下面内容保存为 profile.json，可在其他 AP 上导入。注意：包含 Wi-Fi 密码。"
+msgstr ""
+
+msgid "授权"
+msgstr ""
+
+msgid "授权需要 sshpass；未安装时只能手工把公钥放到 AP 的 authorized_keys。"
+msgstr ""
+
+msgid "探测"
+msgstr ""
+
+msgid "探测失败：%s"
+msgstr ""
+
+msgid "接口"
+msgstr ""
+
+msgid "操作"
+msgstr ""
+
+msgid "无"
+msgstr ""
+
+msgid "无响应"
+msgstr ""
+
+msgid "无法回读运行态：%s"
+msgstr ""
+
+msgid "无线模板"
+msgstr ""
+
+msgid "是"
+msgstr ""
+
+msgid "更多应用方式"
+msgstr ""
+
+msgid "有"
+msgstr ""
+
+msgid "未启用"
+msgstr ""
+
+msgid "未安装 sshpass，无法自动授权。请先安装 sshpass，或手工把公钥放到 AP。"
+msgstr ""
+
+msgid "未安装，首次授权将退化为手动输入密码"
+msgstr ""
+
+msgid "未检测到"
+msgstr ""
+
+msgid "未生成"
+msgstr ""
+
+msgid "未知"
+msgstr ""
+
+msgid "未知原因"
+msgstr ""
+
+msgid "未知错误"
+msgstr ""
+
+msgid "未装"
+msgstr ""
+
+msgid "未设置"
+msgstr ""
+
+msgid "本地生成 PMK"
+msgstr ""
+
+msgid "本地生成 PMK（FT-PSK）"
+msgstr ""
+
+msgid "本机无线信息"
+msgstr ""
+
+msgid "本机没有无线接口配置。若这台设备只当 AC，这是正常的。"
+msgstr ""
+
+msgid "本机角色"
+msgstr ""
+
+msgid "来源"
+msgstr ""
+
+msgid "模式"
+msgstr ""
+
+msgid "模板将写入的值"
+msgstr ""
+
+msgid "模板已保存。尚未配置 AP 节点，跳过下发（请先在“节点”页添加）。"
+msgstr ""
+
+msgid "模板已保存并下发到 %d 台 AP。"
+msgstr ""
+
+msgid "模板已保存，但 AP 下发未成功：%s"
+msgstr ""
+
+msgid "模板已保存，尚未下发。"
+msgstr ""
+
+msgid "模板已保存：SSID %s，移动域 %s"
+msgstr ""
+
+msgid "正在处理 %s（%d/%d）…"
+msgstr ""
+
+msgid "正在巡检 %s（%d/%d）…"
+msgstr ""
+
+msgid "正在重载无线并回读…"
+msgstr ""
+
+msgid "没有发现其他设备。"
+msgstr ""
+
+msgid "没有可应用的 AP 接口。"
+msgstr ""
+
+msgid "没有新增节点（可能已存在或未勾选）。"
+msgstr ""
+
+msgid "没有检测到射频。若这台设备只当 AC，这是正常的。"
+msgstr ""
+
+msgid "没有读到 hostapd 接口。请确认已安装满血 wpad 且无线已启动。"
+msgstr ""
+
+msgid "添加选中的设备为节点"
+msgstr ""
+
+msgid "清除 %s 的单独凭据？"
+msgstr ""
+
+msgid "清除凭据"
+msgstr ""
+
+msgid "清除凭据只删除本机保存的密码，不影响已写入 AP 的公钥。"
+msgstr ""
+
+msgid "清除结果"
+msgstr ""
+
+msgid "漫游参数（802.11k/v 与 FT）"
+msgstr ""
+
+msgid "点击“开始巡检”后逐台显示结果。"
+msgstr ""
+
+msgid "状态"
+msgstr ""
+
+msgid "独立（单机）"
+msgstr ""
+
+msgid "生成失败：%s"
+msgstr ""
+
+msgid "由驱动决定"
+msgstr ""
+
+msgid "留空则为 100。"
+msgstr ""
+
+msgid "留空则由 SSID 派生。"
+msgstr ""
+
+msgid "留空的项按“自动”取值；填写覆盖值后这里会显示“已指定”。"
+msgstr ""
+
+msgid "留空表示不修改；auto 表示自动。"
+msgstr ""
+
+msgid "移动域必须是 4 位十六进制，例如 a1b2"
+msgstr ""
+
+msgid "移动域必须是 4 位十六进制，例如 a1b2。"
+msgstr ""
+
+msgid "移动域（MD）"
+msgstr ""
+
+msgid "移除"
+msgstr ""
+
+msgid "结果"
+msgstr ""
+
+msgid "统一凭据"
+msgstr ""
+
+msgid "统一密码：将对 %d 台节点尝试授权"
+msgstr ""
+
+msgid "统一配置本机的 AC/AP 角色与 802.11k/v/r 参数。修改后点击“保存并应用”。"
+msgstr ""
+
+msgid "自动"
+msgstr ""
+
+msgid "自动生成移动域"
+msgstr ""
+
+msgid "自动生成移动域（MD）"
+msgstr ""
+
+msgid "自动（关闭）"
+msgstr ""
+
+msgid "自动（开启）"
+msgstr ""
+
+msgid "节点"
+msgstr ""
+
+msgid "角色与漫游"
+msgstr ""
+
+msgid "设备"
+msgstr ""
+
+msgid "说明"
+msgstr ""
+
+msgid "请先填写 SSID。"
+msgstr ""
+
+msgid "请输入 %s 的 SSH 密码（root 用户）"
+msgstr ""
+
+msgid "读取中…"
+msgstr ""
+
+msgid "读取本机无线信息"
+msgstr ""
+
+msgid "读取本机（可能只当 AC，也可能同时是 AP）的无线配置与运行态，确认模板是否已正确落盘。"
+msgstr ""
+
+msgid "调用失败：%s"
+msgstr ""
+
+msgid "运行态（hostapd 回读）"
+msgstr ""
+
+msgid "运行环境检查"
+msgstr ""
+
+msgid "还没有节点。"
+msgstr ""
+
+msgid "还没有节点。先扫描或手动添加。"
+msgstr ""
+
+msgid "还没有节点，请先到“节点”页添加。"
+msgstr ""
+
+msgid "这些项不填就按默认规则生成；填了以填写值为准。"
+msgstr ""
+
+msgid "这里定义一套全屋统一的 Wi-Fi 与漫游参数。应用后写入本机所有 AP 接口，并重载无线。"
+msgstr ""
+
+msgid "通过 SSH 逐台读取 AP 的实际无线配置，与当前模板对比。严格串行：上一台返回后才请求下一台。"
+msgstr ""
+
+msgid "配置已写入并重载本机无线。"
+msgstr ""
+
+msgid "配置模板"
+msgstr ""
+
+msgid "重新生成密钥"
+msgstr ""
+
+msgid "防火墙"
+msgstr ""
+
+msgid "隐藏 SSID"
+msgstr ""
+
+msgid "需要满血 wpad；建议只在 5G 开启，2.4G 开 r 容易抖动。"
+msgstr ""
+
+msgid "项目"
+msgstr ""
+
+msgid "频段"
+msgstr ""
+
+msgid "高级（留空即自动）"
+msgstr ""
+
+msgid "默认凭据"
+msgstr ""
+
+msgid "（自动）"
+msgstr ""
+
+msgid "导入配置"
+msgstr ""
+
+msgid "粘贴 profile.json 内容"
+msgstr ""
+
+msgid "粘贴或选择 profile.json 后点击“导入”。只写入模板，不会自动下发。"
+msgstr ""
+
+msgid "导入"
+msgstr ""
+
+msgid "取消"
+msgstr ""
+
+msgid "JSON 解析失败：%s"
+msgstr ""
+
+msgid "导入内容不是有效的配置对象。"
+msgstr ""
+
+msgid "配置已导入到模板。"
+msgstr ""
+
+msgid "关闭密码登录"
+msgstr ""
+
+msgid "在 %s 上关闭 SSH 密码登录？请先确认密钥登录可用，否则可能失联。"
+msgstr ""
+
+msgid "%s：已关闭密码登录。"
+msgstr ""
+
+msgid "%s：加固失败（%s）"
+msgstr ""

@@ -1,0 +1,31 @@
+#!/bin/sh
+# hostapd_cli stub for unit tests.
+# Usage: hostapd_cli -i <ifname> <status|get_config>
+
+IFN=""
+CMD=""
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		-i) IFN="$2"; shift 2 ;;
+		*) CMD="$1"; shift ;;
+	esac
+done
+
+case "$IFN:$CMD" in
+	wlan0:status)
+		printf 'ssid=Home\nchannel=36\nfreq=5180\n'
+		;;
+	wlan0:get_config)
+		printf 'ieee80211r=1\nmobility_domain=a1b2\nieee80211k=1\nbss_transition=1\nft_over_ds=1\n'
+		;;
+	wlan1:status)
+		printf 'ssid=Home\nchannel=6\nfreq=2437\n'
+		;;
+	wlan1:get_config)
+		printf 'ieee80211r=0\nmobility_domain=\nieee80211k=1\nbss_transition=1\nft_over_ds=\n'
+		;;
+	*)
+		exit 1
+		;;
+esac

@@ -1,0 +1,893 @@
+#!/bin/sh
+# luci-app-mesh-lite - rpcd backend
+#
+# 只做系统命令编排：状态采集、SSH 密钥生成、设备发现、凭据下发。
+# 不实现任何无线协议，不直接改 /etc/config/wireless。
+
+JSHN="${MESH_LITE_JSHN:-/usr/share/libubox/jshn.sh}"
+[ -f "$JSHN" ] && . "$JSHN"
+
+KEY="${MESH_LITE_KEY:-/etc/dropbear/id_ed25519}"
+SECRETS_DIR="${MESH_LITE_SECRETS_DIR:-/etc/mesh-lite}"
+SECRETS="$SECRETS_DIR/secrets"
+HOSTAPD_DIR="${MESH_LITE_HOSTAPD_DIR:-/var/run/hostapd}"
+
+# SSH 超时（秒）：AP 离线时避免命令长时间挂起。可在 mesh_lite.general.ssh_timeout 配置。
+SSH_TIMEOUT="$(uci -q get mesh_lite.general.ssh_timeout 2>/dev/null)"
+case "$SSH_TIMEOUT" in
+	''|*[!0-9]*) SSH_TIMEOUT=10 ;;
+esac
+
+PKG_CACHE=""
+
+pkg_raw() {
+	if command -v opkg >/dev/null 2>&1; then
+		opkg list-installed 2>/dev/null
+	elif command -v apk >/dev/null 2>&1; then
+		apk info 2>/dev/null
+	fi
+}
+
+pkgs() {
+	printf '%s\n' "$PKG_CACHE"
+}
+
+has_pkg() {
+	pkgs | awk -v p="$1" '$1 == p { found = 1 } END { exit !found }'
+}
+
+wpad_list() {
+	pkgs | awk '/^wpad/ { print $1 }' | sort -u | tr '\n' ' '
+}
+
+has_full_wpad() {
+	local p
+	for p in $(wpad_list); do
+		case "$p" in
+			wpad-mbedtls|wpad-openssl|wpad-wolfssl|wpad-mesh-mbedtls|wpad-mesh-openssl|wpad-mesh-wolfssl)
+				return 0
+				;;
+		esac
+	done
+	return 1
+}
+
+detect_firewall() {
+	if command -v fw4 >/dev/null 2>&1; then
+		echo "fw4"
+	elif command -v fw3 >/dev/null 2>&1; then
+		echo "fw3"
+	else
+		echo "unknown"
+	fi
+}
+
+key_pub() {
+	[ -f "$KEY" ] || return 1
+	dropbearkey -y -f "$KEY" 2>/dev/null | grep '^ssh-' | head -n1
+}
+
+key_fp() {
+	[ -f "$KEY" ] || return 1
+	dropbearkey -y -f "$KEY" 2>/dev/null | sed -n 's/^Fingerprint: *//p' | head -n1
+}
+
+do_status() {
+	local role ip host pub fp full sshpass_ok
+
+	PKG_CACHE="$(pkg_raw)"
+
+	role="$(uci -q get mesh_lite.general.role)"
+	ip="$(uci -q get network.lan.ipaddr)"
+	host="$(cat /proc/sys/kernel/hostname 2>/dev/null)"
+
+	if [ -f "$KEY" ]; then
+		pub="$(key_pub)"
+		fp="$(key_fp)"
+	else
+		pub=""
+		fp=""
+	fi
+
+	has_full_wpad && full=1 || full=0
+	has_pkg sshpass && sshpass_ok=1 || sshpass_ok=0
+
+	json_init
+	json_add_string role "$role"
+	json_add_string lan_ip "$ip"
+	json_add_string hostname "$host"
+	json_add_string firewall "$(detect_firewall)"
+	json_add_string wpad "$(wpad_list)"
+	json_add_boolean full_wpad "$full"
+	json_add_boolean sshpass "$sshpass_ok"
+	json_add_boolean key_exists "$([ -f "$KEY" ] && echo 1 || echo 0)"
+	json_add_string pubkey "$pub"
+	json_add_string fingerprint "$fp"
+	json_add_string mobility_domain "$(uci -q get mesh_lite.general.mobility_domain)"
+
+	json_add_array radios
+	for r in $(uci -q show wireless 2>/dev/null | sed -n 's/^wireless\.\([^.=]*\)=wifi-device$/\1/p'); do
+		json_add_object ""
+		json_add_string name "$r"
+		json_add_string band "$(uci -q get "wireless.$r.band")"
+		json_add_string channel "$(uci -q get "wireless.$r.channel")"
+		json_add_string disabled "$(uci -q get "wireless.$r.disabled")"
+		json_close_object
+	done
+	json_close_array
+
+	json_dump
+}
+
+do_discover() {
+	local self tmp clean ip host mac
+
+	self="$(uci -q get network.lan.ipaddr)"
+	tmp="$(mktemp)"
+	clean="$(mktemp)"
+
+	[ -f /tmp/dhcp.leases ] && awk -F' ' '{ print $3 "\t" $4 "\t" $2 }' /tmp/dhcp.leases >> "$tmp"
+	ip neigh show 2>/dev/null | awk '$4 == "lladdr" { print $1 "\t-" "\t" $5 }' >> "$tmp"
+
+	awk -F'\t' -v self="$self" \
+		'NF >= 3 && $1 != "" && $1 != self && !seen[$1]++ { print }' \
+		"$tmp" > "$clean"
+
+	json_init
+	json_add_array nodes
+	while IFS="$(printf '\t')" read -r ip host mac; do
+		json_add_object ""
+		json_add_string ip "$ip"
+		json_add_string host "$host"
+		json_add_string mac "$mac"
+		json_close_object
+	done < "$clean"
+	json_close_array
+	json_dump
+
+	rm -f "$tmp" "$clean"
+}
+
+do_genkey() {
+	local created=0 pub fp
+
+	if [ ! -f "$KEY" ]; then
+		mkdir -p /etc/dropbear
+		if ! dropbearkey -t ed25519 -f "$KEY" >/dev/null 2>&1; then
+			json_init
+			json_add_boolean ok 0
+			json_add_string error "dropbearkey failed"
+			json_dump
+			return
+		fi
+		chmod 600 "$KEY"
+		created=1
+	fi
+
+	pub="$(key_pub)"
+	fp="$(key_fp)"
+
+	json_init
+	json_add_boolean ok 1
+	json_add_boolean created "$created"
+	json_add_string pubkey "$pub"
+	json_add_string fingerprint "$fp"
+	json_dump
+}
+
+do_getkey() {
+	local pub fp exists=0
+
+	[ -f "$KEY" ] && exists=1
+	pub="$(key_pub)"
+	fp="$(key_fp)"
+
+	json_init
+	json_add_boolean ok 1
+	json_add_boolean exists "$exists"
+	json_add_string pubkey "$pub"
+	json_add_string fingerprint "$fp"
+	json_dump
+}
+
+# M2 实现：凭据阶梯
+do_auth_probe() {
+	json_init
+	json_add_boolean ok 0
+	json_add_string error "not implemented (M2)"
+	json_dump
+}
+
+do_auth_push() {
+	json_init
+	json_add_boolean ok 0
+	json_add_string error "not implemented (M2)"
+	json_dump
+}
+
+do_auth_verify() {
+	json_init
+	json_add_boolean ok 0
+	json_add_string error "not implemented (M2)"
+	json_dump
+}
+
+do_auth_forget() {
+	json_init
+	json_add_boolean ok 0
+	json_add_string error "not implemented (M2)"
+	json_dump
+}
+
+# M3 实现：SSH 拉取远端状态
+# M4：只读采集脚本（在 AP 上执行，输出 | 分隔的行式数据，避免依赖 jsonfilter）
+build_poll_payload() {
+	cat <<'EOS'
+#!/bin/sh
+sane() { printf '%s' "$1" | tr '|\n\r' '   '; }
+
+echo "HOST|$(sane "$(cat /proc/sys/kernel/hostname 2>/dev/null || hostname)")"
+echo "UPTIME|$(cut -d. -f1 /proc/uptime 2>/dev/null)"
+
+uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device$/ { print $2 }' | while read -r d; do
+	band=$(uci -q get wireless.$d.band)
+	ch=$(uci -q get wireless.$d.channel)
+	tp=$(uci -q get wireless.$d.txpower)
+	ht=$(uci -q get wireless.$d.htmode)
+	cur=$(iwinfo "$d" info 2>/dev/null | sed -n 's/.*Channel: \([0-9][0-9]*\).*/\1/p' | head -n1)
+	echo "DEV|$(sane "$d")|$(sane "$band")|$(sane "$ch")|$(sane "$cur")|$(sane "$tp")|$(sane "$ht")"
+done
+
+uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface$/ { print $2 }' | while read -r s; do
+	dev=$(uci -q get wireless.$s.device)
+	mode=$(uci -q get wireless.$s.mode)
+	ssid=$(uci -q get wireless.$s.ssid)
+	enc=$(uci -q get wireless.$s.encryption)
+	r=$(uci -q get wireless.$s.ieee80211r)
+	md=$(uci -q get wireless.$s.mobility_domain)
+	k=$(uci -q get wireless.$s.ieee80211k)
+	v=$(uci -q get wireless.$s.bss_transition)
+	hid=$(uci -q get wireless.$s.hidden)
+	key=$(uci -q get wireless.$s.key)
+	[ -n "$key" ] && key=1 || key=0
+	echo "BSS|$(sane "$s")|$(sane "$dev")|$(sane "$mode")|$(sane "$ssid")|$(sane "$enc")|$(sane "$r")|$(sane "$md")|$(sane "$k")|$(sane "$v")|$(sane "$hid")|$key"
+done
+EOS
+}
+
+parse_poll_output() {
+	local f="$1" ip="$2" host="" up="" type a b c d e g h i j k
+
+	host="$(sed -n 's/^HOST|//p' "$f" | head -n1)"
+	up="$(sed -n 's/^UPTIME|//p' "$f" | head -n1)"
+
+	json_init
+	json_add_boolean ok 1
+	json_add_string ip "$ip"
+	json_add_string hostname "$host"
+	json_add_string uptime "$up"
+
+	json_add_array devices
+	while IFS='|' read -r type a b c d e g; do
+		[ "$type" = "DEV" ] || continue
+		json_add_object ""
+		json_add_string dev "$a"
+		json_add_string band "$b"
+		json_add_string channel "$c"
+		json_add_string cur_channel "$d"
+		json_add_string txpower "$e"
+		json_add_string htmode "$g"
+		json_close_object
+	done < "$f"
+	json_close_array
+
+	json_add_array bss
+	while IFS='|' read -r type a b c d e g h i j k; do
+		[ "$type" = "BSS" ] || continue
+		json_add_object ""
+		json_add_string name "$a"
+		json_add_string dev "$b"
+		json_add_string mode "$c"
+		json_add_string ssid "$d"
+		json_add_string encryption "$e"
+		json_add_string r "$g"
+		json_add_string md "$h"
+		json_add_string k "$i"
+		json_add_string v "$j"
+		json_add_string hidden "$k"
+		json_close_object
+	done < "$f"
+	json_close_array
+
+	json_dump
+}
+
+do_poll() {
+	local ip="" payload="" b64p="" cmd="" out="" tmp=""
+
+	json_get_var ip ip
+
+	if [ -z "$ip" ]; then
+		json_init
+		json_add_boolean ok 0
+		json_add_string error "missing ip"
+		json_dump
+		return
+	fi
+
+	payload="$(build_poll_payload)"
+	b64p="$(b64 "$payload")"
+	cmd="echo '$b64p' | base64 -d | sh"
+
+	# 一次一台：AC 侧串行调用，单台结果返回后才轮到下一台。
+	out="$(ssh_key_run "$ip" root "$cmd")"
+
+	if [ -z "$out" ]; then
+		json_init
+		json_add_boolean ok 0
+		json_add_string ip "$ip"
+		json_add_string error "ssh failed or empty output"
+		json_dump
+		return
+	fi
+
+	tmp="$(mktemp)"
+	printf '%s\n' "$out" > "$tmp"
+	parse_poll_output "$tmp" "$ip"
+	rm -f "$tmp"
+}
+
+# M2：应用本机无线配置后重载 hostapd
+do_apply_wireless() {
+	if ! command -v wifi >/dev/null 2>&1; then
+		json_init
+		json_add_boolean ok 0
+		json_add_string error "wifi command not found"
+		json_dump
+		return
+	fi
+
+	wifi reload >/dev/null 2>&1
+
+	json_init
+	json_add_boolean ok 1
+	json_dump
+}
+
+# M2：回读 hostapd 运行态，确认 802.11r/k/v 是否真的生效
+do_verify_wireless() {
+	local sock ifn cfg ssid channel freq r md k v ds
+
+	if ! command -v hostapd_cli >/dev/null 2>&1; then
+		json_init
+		json_add_boolean ok 0
+		json_add_string error "hostapd_cli not found (install hostapd-utils)"
+		json_add_array ifaces
+		json_close_array
+		json_dump
+		return
+	fi
+
+	json_init
+	json_add_boolean ok 1
+	json_add_array ifaces
+
+	for sock in "$HOSTAPD_DIR"/*; do
+		[ -e "$sock" ] || continue
+		ifn="${sock##*/}"
+
+		cfg="$(hostapd_cli -i "$ifn" status 2>/dev/null)"
+		ssid="$(printf '%s\n' "$cfg" | sed -n 's/^ssid=//p')"
+		channel="$(printf '%s\n' "$cfg" | sed -n 's/^channel=//p')"
+		freq="$(printf '%s\n' "$cfg" | sed -n 's/^freq=//p')"
+
+		cfg="$(hostapd_cli -i "$ifn" get_config 2>/dev/null)"
+		r="$(printf '%s\n' "$cfg" | sed -n 's/^ieee80211r=//p')"
+		md="$(printf '%s\n' "$cfg" | sed -n 's/^mobility_domain=//p')"
+		k="$(printf '%s\n' "$cfg" | sed -n 's/^ieee80211k=//p')"
+		v="$(printf '%s\n' "$cfg" | sed -n 's/^bss_transition=//p')"
+		ds="$(printf '%s\n' "$cfg" | sed -n 's/^ft_over_ds=//p')"
+
+		json_add_object ""
+		json_add_string ifname "$ifn"
+		json_add_string ssid "$ssid"
+		json_add_string channel "$channel"
+		json_add_string freq "$freq"
+		json_add_string r "$r"
+		json_add_string md "$md"
+		json_add_string k "$k"
+		json_add_string v "$v"
+		json_add_string ds "$ds"
+		json_close_object
+	done
+
+	json_close_array
+	json_dump
+}
+
+# M2：读取各射频的配置值与驱动当前值（用于“一键配置”显示默认信号强度）
+do_radio_info() {
+	local r band ch uci_tp info cur_ch cur_tp
+
+	json_init
+	json_add_array radios
+
+	for r in $(uci -q show wireless 2>/dev/null | sed -n 's/^wireless\.\([^.=]*\)=wifi-device$/\1/p'); do
+		band="$(uci -q get "wireless.$r.band")"
+		ch="$(uci -q get "wireless.$r.channel")"
+		uci_tp="$(uci -q get "wireless.$r.txpower")"
+		cur_ch=""
+		cur_tp=""
+
+		if command -v iwinfo >/dev/null 2>&1; then
+			info="$(iwinfo "$r" info 2>/dev/null)"
+			cur_ch="$(printf '%s\n' "$info" | sed -n 's/.*Channel: \([0-9][0-9]*\).*/\1/p' | head -n1)"
+			cur_tp="$(printf '%s\n' "$info" | sed -n 's/.*Tx-Power: \([0-9][0-9]*\) dBm.*/\1/p' | head -n1)"
+		fi
+
+		json_add_object ""
+		json_add_string name "$r"
+		json_add_string band "$band"
+		json_add_string channel "$ch"
+		json_add_string uci_txpower "$uci_tp"
+		json_add_string cur_channel "$cur_ch"
+		json_add_string cur_txpower "$cur_tp"
+		json_add_string hwmode "$(uci -q get "wireless.$r.hwmode")"
+		json_add_string htmode "$(uci -q get "wireless.$r.htmode")"
+		json_close_object
+	done
+
+	json_close_array
+	json_dump
+}
+
+# ---------------------------------------------------------------- 凭据存储 ---
+# 每行：ip<TAB>user<TAB>pass，0600，仅 root 可读。
+secret_lookup() {
+	[ -f "$SECRETS" ] || return 1
+	awk -F'\t' -v ip="$1" '$1 == ip { print $2 "\t" $3; exit }' "$SECRETS"
+}
+
+secret_store() {
+	local ip="$1" user="$2" pass="$3"
+
+	mkdir -p "$SECRETS_DIR"
+	chmod 700 "$SECRETS_DIR" 2>/dev/null
+	touch "$SECRETS"
+	chmod 600 "$SECRETS" 2>/dev/null
+
+	awk -F'\t' -v ip="$ip" '$1 != ip' "$SECRETS" > "$SECRETS.tmp" 2>/dev/null
+	printf '%s\t%s\t%s\n' "$ip" "$user" "$pass" >> "$SECRETS.tmp"
+	mv "$SECRETS.tmp" "$SECRETS"
+	chmod 600 "$SECRETS" 2>/dev/null
+}
+
+secret_remove() {
+	local ip="$1"
+
+	[ -f "$SECRETS" ] || return 0
+
+	awk -F'\t' -v ip="$ip" '$1 != ip' "$SECRETS" > "$SECRETS.tmp" 2>/dev/null
+	mv "$SECRETS.tmp" "$SECRETS"
+	chmod 600 "$SECRETS" 2>/dev/null
+}
+
+# ------------------------------------------------------------------ SSH ---
+# dropbear 客户端支持 -y（始终接受主机密钥），不支持 OpenSSH 的 -o/ConnectTimeout，
+# 因此用 timeout 包裹整条命令，保证 AP 离线时也能在有限时间内返回。
+run_timeout() {
+	local secs="$1"
+	shift
+
+	if command -v timeout >/dev/null 2>&1; then
+		timeout "$secs" "$@"
+	else
+		"$@"
+	fi
+}
+
+ssh_key_run() {
+	local ip="$1" user="$2" cmd="$3"
+
+	run_timeout "$SSH_TIMEOUT" ssh -y -q -T -i "$KEY" -l "$user" "$ip" "$cmd" 2>/dev/null
+}
+
+ssh_pass_run() {
+	local ip="$1" user="$2" pass="$3" cmd="$4"
+
+	run_timeout "$SSH_TIMEOUT" sshpass -p "$pass" ssh -y -q -T -l "$user" "$ip" "$cmd" 2>/dev/null
+}
+
+key_login_ok() {
+	ssh_key_run "$1" "${2:-root}" "true" >/dev/null 2>&1
+}
+
+port22_open() {
+	command -v nc >/dev/null 2>&1 || return 1
+	nc -w 2 "$1" 22 </dev/null >/dev/null 2>&1
+}
+
+# 公钥（可选加 from= 限制），所有参数都由 \; 分隔。
+build_pubkey() {
+	local pub lan_ip lan_mask
+
+	pub="$(key_pub)" || return 1
+	[ -n "$pub" ] || return 1
+
+	if [ "$(uci -q get mesh_lite.general.restrict_key_source)" = "1" ]; then
+		lan_ip="$(uci -q get network.lan.ipaddr)"
+		lan_mask="$(uci -q get network.lan.netmask)"
+
+		if command -v ipcalc.sh >/dev/null 2>&1 && [ -n "$lan_ip" ] && [ -n "$lan_mask" ]; then
+			eval "$(ipcalc.sh "$lan_ip" "$lan_mask" 2>/dev/null)"
+			if [ -n "${NETWORK:-}" ] && [ -n "${PREFIX:-}" ]; then
+				pub="from=\"$NETWORK/$PREFIX\" $pub"
+			fi
+		fi
+	fi
+
+	printf '%s' "$pub"
+}
+
+# ------------------------------------------------------------------ 探测 ---
+do_auth_probe() {
+	local ip="" authorized=0 port=0 haspass=0
+
+	json_get_var ip ip
+
+	if [ -z "$ip" ]; then
+		json_init
+		json_add_boolean ok 0
+		json_add_string error "missing ip"
+		json_dump
+		return
+	fi
+
+	key_login_ok "$ip" && authorized=1
+	port22_open "$ip" && port=1
+	command -v sshpass >/dev/null 2>&1 && haspass=1
+
+	json_init
+	json_add_boolean ok 1
+	json_add_string ip "$ip"
+	json_add_boolean port22 "$port"
+	json_add_boolean key_ok "$authorized"
+	json_add_boolean sshpass "$haspass"
+	json_dump
+}
+
+# ------------------------------------------------------------------ 授权 ---
+do_auth_push() {
+	local ip="" mode="" user="" pass="" pub="" cmd="" ok=0 err=""
+
+	json_get_var ip ip
+	json_get_var mode mode
+	json_get_var user user
+	json_get_var pass pass
+	[ -n "$user" ] || user="root"
+
+	if [ -z "$ip" ]; then
+		json_init; json_add_boolean ok 0; json_add_string error "missing ip"; json_dump; return
+	fi
+
+	if key_login_ok "$ip" "$user"; then
+		ok=1
+	else
+		pub="$(build_pubkey)" || { err="no local public key"; }
+
+		if [ -z "$err" ] && [ -z "$pass" ]; then
+			err="password required"
+		fi
+
+		if [ -z "$err" ] && ! command -v sshpass >/dev/null 2>&1; then
+			err="sshpass not installed"
+		fi
+
+		if [ -z "$err" ]; then
+			cmd="mkdir -p /etc/dropbear; touch /etc/dropbear/authorized_keys; grep -qF '$pub' /etc/dropbear/authorized_keys || echo '$pub' >> /etc/dropbear/authorized_keys; chmod 600 /etc/dropbear/authorized_keys"
+
+			if [ "$mode" = "default" ] && [ -z "$pass" ]; then
+				# 同批刷机的常见默认凭据；逐个尝试，命中即止。
+				for pair in 'root:' 'root:root' 'root:password' 'root:admin' 'admin:admin'; do
+					du="${pair%%:*}"
+					dp="${pair#*:}"
+
+					if ssh_pass_run "$ip" "$du" "$dp" "$cmd" >/dev/null 2>&1 && key_login_ok "$ip" "$du"; then
+						user="$du"
+						ok=1
+						break
+					fi
+				done
+			elif [ -n "$pass" ] && ssh_pass_run "$ip" "$user" "$pass" "$cmd" >/dev/null 2>&1 && key_login_ok "$ip" "$user"; then
+				ok=1
+			fi
+
+			[ "$ok" = "1" ] || err="push failed"
+		fi
+	fi
+
+	if [ "$ok" = "1" ] && [ "$mode" = "override" ]; then
+		secret_store "$ip" "$user" "$pass"
+	fi
+
+	json_init
+	json_add_boolean ok "$ok"
+	json_add_string ip "$ip"
+	json_add_string mode "$mode"
+	[ -n "$err" ] && json_add_string error "$err"
+	json_dump
+}
+
+do_auth_verify() {
+	local ip="" user="" host="" ok=0
+
+	json_get_var ip ip
+	json_get_var user user
+	[ -n "$user" ] || user="root"
+
+	if [ -n "$ip" ]; then
+		host="$(ssh_key_run "$ip" "$user" "cat /proc/sys/kernel/hostname 2>/dev/null || hostname" 2>/dev/null)"
+		[ -n "$host" ] && ok=1
+	fi
+
+	json_init
+	json_add_boolean ok "$ok"
+	json_add_string ip "$ip"
+	[ -n "$host" ] && json_add_string hostname "$host"
+	json_dump
+}
+
+do_auth_forget() {
+	local ip=""
+
+	json_get_var ip ip
+
+	[ -n "$ip" ] && secret_remove "$ip"
+
+	json_init
+	json_add_boolean ok 1
+	json_add_string ip "$ip"
+	json_dump
+}
+
+# ------------------------------------------------------------ AP 下发 ----
+# 把值转成 base64，避免 SSID/密码里的引号、空格破坏远端脚本。
+b64() {
+	printf '%s' "$1" | base64 | tr -d '\n'
+}
+
+# 生成远端执行的脚本（不含本机路径，全部值走 base64）。
+build_apply_payload() {
+	local md ssid psk enc beacon r2 r5 k v ds ftlocal payload
+
+	md="$1"
+	ssid="$(uci -q get mesh_lite.profile.ssid)"
+	psk="$(uci -q get mesh_lite.profile.key)"
+	enc="$(uci -q get mesh_lite.profile.encryption)"
+	beacon="$(uci -q get mesh_lite.profile.beacon)"
+	r2="$(uci -q get mesh_lite.profile.enable_r_2g)"
+	r5="$(uci -q get mesh_lite.profile.enable_r_5g)"
+	k="$(uci -q get mesh_lite.general.enable_k)"
+	v="$(uci -q get mesh_lite.general.enable_v)"
+	ds="$(uci -q get mesh_lite.general.ft_over_ds)"
+	ftlocal="$(uci -q get mesh_lite.general.ft_psk_generate_local)"
+
+	[ -n "$enc" ] || enc="psk2"
+	[ -n "$beacon" ] || beacon="100"
+	[ -n "$r2" ] || r2="0"
+	[ -n "$r5" ] || r5="1"
+	[ -n "$k" ] || k="1"
+	[ -n "$v" ] || v="1"
+	[ -n "$ds" ] || ds="1"
+	[ -n "$ftlocal" ] || ftlocal="1"
+
+	# 静态模板 + 占位符替换：模板用引号 heredoc，避免反斜杠/美元符号被本机 shell 解析。
+	payload="$(cat <<'EOS'
+#!/bin/sh
+ssid=$(echo '@SSID@' | base64 -d)
+psk=$(echo '@PSK@' | base64 -d)
+enc=$(echo '@ENC@' | base64 -d)
+beacon=$(echo '@BEACON@' | base64 -d)
+md=$(echo '@MD@' | base64 -d)
+r2='@R2@'
+r5='@R5@'
+k='@K@'
+v='@V@'
+ds='@DS@'
+ftlocal='@FTLOCAL@'
+
+for s in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface$/ { print $2 }'); do
+	[ "$(uci -q get wireless.$s.mode)" = "ap" ] || continue
+	dev="$(uci -q get wireless.$s.device)"
+	band="$(uci -q get wireless.$dev.band)"
+	[ -n "$band" ] || band="5g"
+	if [ "$band" = "2g" ]; then wr="$r2"; else wr="$r5"; fi
+
+	uci set wireless.$s.ssid="$ssid"
+	uci set wireless.$s.hidden='0'
+	uci set wireless.$s.beacon_int="$beacon"
+
+	if [ "$enc" = "none" ]; then
+		uci set wireless.$s.encryption='none'
+		uci -q delete wireless.$s.key
+	else
+		uci set wireless.$s.encryption="$enc"
+		uci set wireless.$s.key="$psk"
+	fi
+
+	if [ "$wr" = "1" ]; then
+		uci set wireless.$s.ieee80211r='1'
+		uci set wireless.$s.mobility_domain="$md"
+		uci set wireless.$s.ft_over_ds="$ds"
+		uci set wireless.$s.ft_psk_generate_local="$ftlocal"
+	else
+		uci -q delete wireless.$s.ieee80211r
+		uci -q delete wireless.$s.mobility_domain
+		uci -q delete wireless.$s.ft_over_ds
+		uci -q delete wireless.$s.ft_psk_generate_local
+	fi
+
+	uci set wireless.$s.ieee80211k="$k"
+	uci set wireless.$s.bss_transition="$v"
+done
+
+uci commit wireless
+wifi reload >/dev/null 2>&1
+exit 0
+EOS
+)"
+
+	payload="$(printf '%s' "$payload" \
+		| sed -e "s|@SSID@|$(b64 "$ssid")|g" \
+		      -e "s|@PSK@|$(b64 "$psk")|g" \
+		      -e "s|@ENC@|$(b64 "$enc")|g" \
+		      -e "s|@BEACON@|$(b64 "$beacon")|g" \
+		      -e "s|@MD@|$(b64 "$md")|g" \
+		      -e "s|@R2@|$r2|g" \
+		      -e "s|@R5@|$r5|g" \
+		      -e "s|@K@|$k|g" \
+		      -e "s|@V@|$v|g" \
+		      -e "s|@DS@|$ds|g" \
+		      -e "s|@FTLOCAL@|$ftlocal|g")"
+
+	printf '%s' "$payload"
+}
+
+do_apply_nodes() {
+	local md="" ip="" name="" payload="" b64p="" cmd="" count=0 fail=0 ok=0 err=""
+
+	json_get_var md md
+
+	if [ -z "$md" ]; then
+		json_init
+		json_add_boolean ok 0
+		json_add_string error "missing mobility_domain"
+		json_dump
+		return
+	fi
+
+	payload="$(build_apply_payload "$md")"
+	b64p="$(printf '%s' "$payload" | base64 | tr -d '\n')"
+	cmd="echo '$b64p' | base64 -d | sh"
+
+	json_init
+	json_add_array nodes
+
+	for s in $(uci -q show mesh_lite 2>/dev/null | sed -n 's/^mesh_lite\.\([^.=]*\)=node$/\1/p'); do
+		ip="$(uci -q get "mesh_lite.$s.ip")"
+		name="$(uci -q get "mesh_lite.$s.name")"
+		[ -n "$ip" ] || continue
+
+		ok=0
+		err=""
+
+		if ! key_login_ok "$ip" root; then
+			err="no ssh access"
+		elif ssh_key_run "$ip" root "$cmd" >/dev/null 2>&1; then
+			ok=1
+		else
+			err="apply failed"
+		fi
+
+		[ "$ok" = "1" ] && count=$((count + 1)) || fail=$((fail + 1))
+
+		json_add_object ""
+		json_add_string ip "$ip"
+		json_add_string name "$name"
+		json_add_boolean ok "$ok"
+		[ -n "$err" ] && json_add_string error "$err"
+		json_close_object
+	done
+
+	json_close_array
+	json_add_boolean ok "$([ "$fail" -eq 0 ] && echo 1 || echo 0)"
+	json_add_int count "$count"
+	json_add_int failed "$fail"
+	json_dump
+}
+
+# M5：加固——在目标 AP 上关闭 SSH 密码登录（依赖密钥已可用）
+do_harden() {
+	local ip="" out=""
+
+	json_get_var ip ip
+
+	if [ -z "$ip" ]; then
+		json_init; json_add_boolean ok 0; json_add_string error "missing ip"; json_dump; return
+	fi
+
+	if ! key_login_ok "$ip" root; then
+		json_init
+		json_add_boolean ok 0
+		json_add_string ip "$ip"
+		json_add_string error "no ssh access"
+		json_dump
+		return
+	fi
+
+	out="$(ssh_key_run "$ip" root "uci set dropbear.@dropbear[0].PasswordAuth='off'; uci commit dropbear; /etc/init.d/dropbear restart >/dev/null 2>&1; echo done")"
+
+	json_init
+	if [ "$out" = "done" ]; then
+		json_add_boolean ok 1
+	else
+		json_add_boolean ok 0
+		json_add_string error "harden failed"
+	fi
+	json_add_string ip "$ip"
+	json_dump
+}
+
+# 仅在作为 rpcd 插件执行时分发；设置 MESH_LITE_LIB_ONLY=1 时只加载函数（测试用）。
+if [ "${MESH_LITE_LIB_ONLY:-0}" != "1" ]; then
+case "$1" in
+	list)
+		cat <<'EOF'
+{
+	"status": {},
+	"discover": {},
+	"genkey": {},
+	"getkey": {},
+	"auth_probe": { "ip": "str" },
+	"auth_push": { "ip": "str", "mode": "str", "user": "str", "pass": "str" },
+	"auth_verify": { "ip": "str" },
+	"auth_forget": { "ip": "str" },
+	"poll": { "ip": "str" },
+	"apply_wireless": {},
+	"verify_wireless": {},
+	"apply_nodes": { "md": "str" },
+	"radio_info": {},
+	"harden": { "ip": "str" }
+}
+EOF
+		;;
+	call)
+		input="$(cat)"
+		json_init
+		json_load "$input" 2>/dev/null
+		case "$2" in
+			status)		do_status ;;
+			discover)	do_discover ;;
+			genkey)		do_genkey ;;
+			getkey)		do_getkey ;;
+			auth_probe)	do_auth_probe ;;
+			auth_push)	do_auth_push ;;
+			auth_verify)	do_auth_verify ;;
+			auth_forget)	do_auth_forget ;;
+			poll)		do_poll ;;
+			apply_wireless)	do_apply_wireless ;;
+			verify_wireless) do_verify_wireless ;;
+			apply_nodes)	do_apply_nodes ;;
+			radio_info)	do_radio_info ;;
+			harden)		do_harden ;;
+			*)
+				json_init
+				json_add_boolean ok 0
+				json_add_string error "unknown method: $2"
+				json_dump
+				;;
+		esac
+		;;
+esac
+exit 0
+fi
