@@ -97,6 +97,8 @@ jobs:
             | --- | --- |
             | `luci-app-mesh-lite_*_all.ipk` | OpenWrt 24.10 and older (opkg) |
             | `luci-app-mesh-lite-*.apk` | OpenWrt snapshot / 25.x (apk) |
+            | `luci-i18n-mesh-lite-zh-cn_*` | Simplified Chinese UI |
+            | `mesh-lite-agent_*_all.ipk` / `mesh-lite-agent-*.apk` | Optional read-only agent, install on APs |
 
             Both packages are architecture independent (`Architecture: all`).
             The app contains only LuCI JS/JSON and a POSIX shell rpcd plugin,
@@ -120,6 +122,20 @@ jobs:
             ```
 
             After installing, reload LuCI and open **Network → Mesh Lite**.
+
+            ### Optional: observe an AP in structured form
+
+            Install `mesh-lite-agent` on an AP (not required on the AC). Inspection
+            then shows the client list with signal and rates without parsing SSH text.
+            The agent is read-only and never handles credentials; remove it and the
+            AC falls back to the SSH poll automatically.
+
+            ```sh
+            opkg install mesh-lite-agent_*_all.ipk
+            # or: apk add --allow-untrusted mesh-lite-agent-*.apk
+            /etc/init.d/mesh-lite-agent enable
+            /etc/init.d/mesh-lite-agent start
+            ```
 
             ### Requirements
 

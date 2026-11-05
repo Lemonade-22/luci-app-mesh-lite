@@ -192,3 +192,12 @@ sh tests/agent-test.sh          # 禁止 UCI 写、wifi reload、写文件、密
 uci changes                     # agent 运行前后应无新增
 ubus call mesh-lite-agent status
 ```
+
+### 9.5 AC 侧消费与巡检页明细
+
+- rpcd 新增 `agent_clients`：校验 `protocol=1`，返回 `count` 与原始 `clients_json`；
+  `agent_status` 与 `agent_clients` 都只在协议匹配时判为可用。
+- 巡检页对每台 AP **并行**做三件事：`poll`（文本兜底）、`agent_status`、`agent_clients`；
+  后两者失败一律降级为空结果，不影响巡检结论。
+- 客户端明细表只渲染**信号与速率**（RSSI、协商 Tx/Rx、实时 Tx/Rx），按弱信号优先排序。
+  **不做厂商/品牌识别**（不拉 OUI 库、不拉品牌图标），这是明确的范围约定。

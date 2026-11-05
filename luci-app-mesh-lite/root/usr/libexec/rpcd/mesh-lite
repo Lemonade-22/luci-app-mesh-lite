@@ -1005,6 +1005,43 @@ do_agent_status() {
 	json_dump
 }
 
+do_agent_clients() {
+	local ip="" out="" proto="" cnt=""
+
+	json_get_var ip ip
+
+	if [ -z "$ip" ]; then
+		json_init; json_add_boolean ok 0; json_add_string error "missing ip"; json_dump; return
+	fi
+
+	out="$(ssh_cred_run "$ip" root "ubus call $AGENT_OBJ clients 2>/dev/null")"
+
+	proto="$(printf '%s' "$out" | sed -n 's/.*"protocol"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n1)"
+	cnt="$(printf '%s' "$out" | grep -o '"mac"' | wc -l | tr -d ' ')"
+
+	json_init
+	json_add_string ip "$ip"
+
+	if [ "$proto" = "$AGENT_PROTO" ]; then
+		json_add_boolean ok 1
+		json_add_boolean agent 1
+		json_add_int protocol "$proto"
+		json_add_int count "${cnt:-0}"
+		json_add_string clients_json "$out"
+	elif [ -n "$out" ]; then
+		json_add_boolean ok 0
+		json_add_boolean agent 0
+		json_add_string error "agent protocol mismatch"
+		json_add_string detail "expected ${AGENT_PROTO}, got ${proto:-none}"
+	else
+		json_add_boolean ok 0
+		json_add_boolean agent 0
+		json_add_string error "agent not available"
+		json_add_string detail "$(ssh_err_detail)"
+	fi
+	json_dump
+}
+
 # 仅在作为 rpcd 插件执行时分发；设置 MESH_LITE_LIB_ONLY=1 时只加载函数（测试用）。
 if [ "${MESH_LITE_LIB_ONLY:-0}" != "1" ]; then
 case "$1" in
@@ -1021,6 +1058,7 @@ case "$1" in
 	"auth_forget": { "ip": "str" },
 	"poll": { "ip": "str" },
 	"agent_status": { "ip": "str" },
+	"agent_clients": { "ip": "str" },
 	"apply_wireless": { "ver": "str" },
 	"verify_wireless": {},
 	"apply_nodes": { "md": "str", "ver": "str" },
@@ -1044,6 +1082,7 @@ EOF
 			auth_forget)	do_auth_forget ;;
 			poll)		do_poll ;;
 			agent_status)	do_agent_status ;;
+			agent_clients)	do_agent_clients ;;
 			apply_wireless)	do_apply_wireless ;;
 			verify_wireless) do_verify_wireless ;;
 			apply_nodes)	do_apply_nodes ;;

@@ -73,6 +73,7 @@ Every push to `main` builds both formats and publishes its own release
 | `luci-i18n-mesh-lite-zh-cn_*_all.ipk` | Chinese UI (opkg) |
 | `luci-app-mesh-lite-*.apk` | OpenWrt snapshot / 25.x (apk) |
 | `luci-i18n-mesh-lite-zh-cn-*.apk` | Chinese UI (apk) |
+| `mesh-lite-agent_*_all.ipk` / `mesh-lite-agent-*.apk` | Optional agent, install **on APs** |
 
 All packages are `Architecture: all` — one file serves every device.
 
@@ -86,13 +87,35 @@ apk add --allow-untrusted luci-app-mesh-lite-*.apk
 apk add --allow-untrusted luci-i18n-mesh-lite-zh-cn-*.apk
 ```
 
+### Optional agent on APs
+
+The AC works without it. Install it on an AP only if you want inspection to return
+structured state (client list with signal and rates, applied config version):
+
+```sh
+# opkg
+opkg install mesh-lite-agent_*_all.ipk
+
+# apk
+apk add --allow-untrusted mesh-lite-agent-*.apk
+
+/etc/init.d/mesh-lite-agent enable
+/etc/init.d/mesh-lite-agent start
+ubus call mesh-lite-agent status     # sanity check
+```
+
+The agent is read-only: it never writes UCI, never reloads radios and never handles
+credentials. Uninstall it and the AC silently falls back to the SSH text poll.
+
 ### From source
 
 ```sh
 cp -r luci-app-mesh-lite openwrt/package/
+cp -r mesh-lite-agent openwrt/package/        # optional
 cd openwrt
 make menuconfig          # LuCI → Applications → luci-app-mesh-lite
 make package/luci-app-mesh-lite/compile V=s
+make package/mesh-lite-agent/compile V=s      # optional
 ```
 
 Reload LuCI after installing; the menu appears under **Network → Mesh Lite**.
@@ -176,6 +199,7 @@ sh -n luci-app-mesh-lite/root/usr/libexec/rpcd/mesh-lite
 bash -n Scripts/ci-build.sh
 sh tests/helpers-test.sh        # 72 unit tests with command stubs
 sh tests/agent-test.sh          # 37 static contract checks for the optional agent
+sh tests/po-test.sh             # every UI string has a translation entry
 
 # build both formats locally with the official OpenWrt SDK
 bash Scripts/ci-build.sh ipk   https://downloads.openwrt.org/releases/24.10.0/targets/x86/64/
