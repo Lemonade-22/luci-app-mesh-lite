@@ -4,10 +4,12 @@
 'require uci';
 'require rpc';
 'require ui';
+'require mesh-lite.common as mc';
 
 var callApplyWireless = rpc.declare({
 	object: 'mesh-lite',
 	method: 'apply_wireless',
+	params: [ 'ver' ],
 	expect: {}
 });
 
@@ -16,16 +18,6 @@ var callVerifyWireless = rpc.declare({
 	method: 'verify_wireless',
 	expect: {}
 });
-
-/* 由 SSID 派生 4 位十六进制移动域，保证同 SSID 的设备得到同一个值。 */
-function deriveMd(ssid) {
-	var h = 5381;
-
-	for (var i = 0; i < ssid.length; i++)
-		h = ((h << 5) + h + ssid.charCodeAt(i)) >>> 0;
-
-	return ('000' + (h & 0xffff).toString(16)).slice(-4);
-}
 
 function bandOf(iface) {
 	var band = null;
@@ -93,7 +85,7 @@ function renderVerifyTable(result) {
 var callApplyNodes = rpc.declare({
 	object: 'mesh-lite',
 	method: 'apply_nodes',
-	params: [ 'md' ],
+	params: [ 'md', 'ver' ],
 	expect: {}
 });
 
@@ -210,6 +202,13 @@ return view.extend({
 		return Promise.resolve(this.map.save());
 	},
 
+	/* 一次用户动作只推进一个版本号：本机与远端必须拿到同一个 ver，
+	   否则巡检会看到"本机 N、AP N±1"这种假差异。 */
+	beginApply: function() {
+		this.applyVer = String(mc.nextConfigVer());
+		return this.applyVer;
+	},
+
 	applyRemoteOnly: function() {
 		var self = this;
 
@@ -223,16 +222,23 @@ return view.extend({
 			}
 
 			var ssid = (uci.get('mesh_lite', 'profile', 'ssid') || '').trim();
-			var mdAuto = uci.get('mesh_lite', 'general', 'md_auto') !== '0';
-			var md = mdAuto ? deriveMd(ssid) : (uci.get('mesh_lite', 'general', 'mobility_domain') || '');
+			var md = mc.effectiveMd(ssid);
+			var ver = self.applyVer || self.beginApply();
 
-			return callApplyNodes(md).then(function(res) {
-				if (!res || res.ok !== true)
+			return callApplyNodes(md, ver).then(function(res) {
+				if (!res || res.ok !== true) {
+					var failed = (res && res.nodes || []).filter(function(n) { return n.ok !== true; });
+					var detail = failed.length
+						? failed.map(function(n) { return (n.name || n.ip) + ': ' + (n.error || '?'); }).join('; ')
+						: ((res && res.error) || _('Unknown reason'));
+
 					ui.addNotification(null, E('p', {},
-						_('Template saved, but pushing to APs failed: %s').format((res && res.error) || _('Unknown reason'))), 'warning');
-				else
+						_('Template saved, but pushing to APs failed: %s').format(detail)), 'warning');
+				}
+				else {
 					ui.addNotification(null, E('p', {},
-						_('Template saved and pushed to %d AP(s).').format(res.count || 0)), 'info');
+						_('Template saved and pushed to %d AP(s), config version %s.').format(res.count || 0, res.ver || ver)), 'info');
+				}
 			});
 		});
 	},
@@ -241,6 +247,7 @@ return view.extend({
 		var self = this;
 
 		return this.persistTemplate().then(function() {
+			self.beginApply();
 			return self.writeLocalWireless();
 		}).then(function(ok) {
 			if (ok === false)
@@ -256,14 +263,15 @@ return view.extend({
 		var hidden = uci.get('mesh_lite', 'profile', 'hidden') === '1';
 		var beacon = uci.get('mesh_lite', 'profile', 'beacon') || '100';
 
-		var mdAuto = uci.get('mesh_lite', 'general', 'md_auto') !== '0';
-		var md = mdAuto ? deriveMd(ssid) : (uci.get('mesh_lite', 'general', 'mobility_domain') || '');
+		var mdAuto = !mc.mdIsExplicit();
+		var md = mc.effectiveMd(ssid);
 		var r2g = uci.get('mesh_lite', 'profile', 'enable_r_2g') === '1';
 		var r5g = uci.get('mesh_lite', 'profile', 'enable_r_5g') !== '0';
 		var kOn = uci.get('mesh_lite', 'general', 'enable_k') !== '0';
 		var vOn = uci.get('mesh_lite', 'general', 'enable_v') !== '0';
 		var ftDs = uci.get('mesh_lite', 'general', 'ft_over_ds') !== '0';
 		var ftLocal = uci.get('mesh_lite', 'general', 'ft_psk_generate_local') !== '0';
+		var ver = this.applyVer || this.beginApply();
 
 		if (!ssid) {
 			ui.addNotification(null, E('p', {}, _('SSID must not be empty.')), 'danger');
@@ -353,8 +361,10 @@ return view.extend({
 			ta.innerHTML = '<em>' + _('Reloading wireless and reading back…') + '</em>';
 
 		return uci.save().then(function() {
-			return callApplyWireless();
-		}).then(function() {
+			return callApplyWireless({ ver: ver });
+		}).then(function(res) {
+			if (res && res.ok === false)
+				throw new Error((res && res.error) || _('wifi reload failed'));
 			return new Promise(function(resolve) { window.setTimeout(resolve, 5000); });
 		}).then(function() {
 			return callVerifyWireless();
@@ -385,8 +395,7 @@ return view.extend({
 		ev.preventDefault();
 
 		var ssid = (uci.get('mesh_lite', 'profile', 'ssid') || '').trim();
-		var mdAuto = uci.get('mesh_lite', 'general', 'md_auto') !== '0';
-		var md = mdAuto ? deriveMd(ssid) : uci.get('mesh_lite', 'general', 'mobility_domain');
+		var md = mc.effectiveMd(ssid);
 
 		var profile = {
 			version: 1,

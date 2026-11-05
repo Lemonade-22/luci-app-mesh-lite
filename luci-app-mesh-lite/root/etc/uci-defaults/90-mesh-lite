@@ -1,10 +1,30 @@
 #!/bin/sh
-# First-boot setup for luci-app-mesh-lite.
-# Creates the private directory that stores per-AP override credentials.
+# First-boot / upgrade setup for luci-app-mesh-lite.
+# Creates the private directory that stores per-AP override credentials,
+# and migrates the mobility-domain override to its new single location.
 
 [ -f /etc/config/mesh_lite ] || exit 0
 
 mkdir -p /etc/mesh-lite
 chmod 700 /etc/mesh-lite
+
+# 融合 Phase 1 迁移：旧版把 MD 覆盖值放在 wizard.mobility_domain，而各页面读取来源
+# 不一致（wizard 读 wizard.*、profile 读 general.*、inspect 读 wizard.*），导致同一
+# 网络在不同页面显示不同 MD。现在权威位置只有 general.md_auto / general.mobility_domain。
+legacy_md="$(uci -q get mesh_lite.wizard.mobility_domain 2>/dev/null)"
+if [ -n "$legacy_md" ] && [ -z "$(uci -q get mesh_lite.general.mobility_domain 2>/dev/null)" ]; then
+	case "$legacy_md" in
+		[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])
+			uci -q set mesh_lite.general.md_auto='0'
+			uci -q set "mesh_lite.general.mobility_domain=$(printf '%s' "$legacy_md" | tr 'A-F' 'a-f')"
+			uci -q delete mesh_lite.wizard.mobility_domain 2>/dev/null
+			uci -q commit mesh_lite
+			;;
+		*)
+			uci -q delete mesh_lite.wizard.mobility_domain 2>/dev/null
+			uci -q commit mesh_lite
+			;;
+	esac
+fi
 
 exit 0

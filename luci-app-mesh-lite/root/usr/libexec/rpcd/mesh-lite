@@ -12,10 +12,23 @@ SECRETS_DIR="${MESH_LITE_SECRETS_DIR:-/etc/mesh-lite}"
 SECRETS="$SECRETS_DIR/secrets"
 HOSTAPD_DIR="${MESH_LITE_HOSTAPD_DIR:-/var/run/hostapd}"
 
+# 远端应用版本标记：不需要 AP 装任何包，仅一个纯文本文件即可参与收敛比对。
+VER_FILE="/etc/mesh-lite.ver"
+
+# 可选协作代理（Phase 2）：AP 上装有 mesh-lite-agent 时优先用它取结构化状态。
+AGENT_OBJ="mesh-lite-agent"
+
 # SSH 超时（秒）：AP 离线时避免命令长时间挂起。可在 mesh_lite.general.ssh_timeout 配置。
 SSH_TIMEOUT="$(uci -q get mesh_lite.general.ssh_timeout 2>/dev/null)"
 case "$SSH_TIMEOUT" in
 	''|*[!0-9]*) SSH_TIMEOUT=10 ;;
+esac
+
+# 1 = 校验收到的 AP 主机密钥（需先授权过，密钥已记录到 known_hosts）；0 = 沿用 -y。
+SSH_STRICT="$(uci -q get mesh_lite.general.ssh_strict_hostkey 2>/dev/null)"
+case "$SSH_STRICT" in
+	1) SSH_HOSTKEY_ARGS="" ;;
+	*) SSH_STRICT=0; SSH_HOSTKEY_ARGS="-y" ;;
 esac
 
 PKG_CACHE=""
@@ -104,6 +117,10 @@ do_status() {
 	json_add_string pubkey "$pub"
 	json_add_string fingerprint "$fp"
 	json_add_string mobility_domain "$(uci -q get mesh_lite.general.mobility_domain)"
+	json_add_string config_ver "$(uci -q get mesh_lite.general.config_ver)"
+	json_add_string md_auto "$(uci -q get mesh_lite.general.md_auto)"
+	json_add_boolean ssh_strict_hostkey "$SSH_STRICT"
+	json_add_string applied_ver "$(cat "$VER_FILE" 2>/dev/null)"
 
 	json_add_array radios
 	for r in $(uci -q show wireless 2>/dev/null | sed -n 's/^wireless\.\([^.=]*\)=wifi-device$/\1/p'); do
@@ -190,34 +207,9 @@ do_getkey() {
 	json_dump
 }
 
-# M2 实现：凭据阶梯
-do_auth_probe() {
-	json_init
-	json_add_boolean ok 0
-	json_add_string error "not implemented (M2)"
-	json_dump
-}
-
-do_auth_push() {
-	json_init
-	json_add_boolean ok 0
-	json_add_string error "not implemented (M2)"
-	json_dump
-}
-
-do_auth_verify() {
-	json_init
-	json_add_boolean ok 0
-	json_add_string error "not implemented (M2)"
-	json_dump
-}
-
-do_auth_forget() {
-	json_init
-	json_add_boolean ok 0
-	json_add_string error "not implemented (M2)"
-	json_dump
-}
+# 凭据阶梯的探测/授权实现见后面的「探测 / 授权」小节。
+# （历史上这里曾有一组 "not implemented (M2)" 占位函数，按 shell 语义被后定义覆盖，
+#   属于永不执行的死代码，已删除。）
 
 # M3 实现：SSH 拉取远端状态
 # M4：只读采集脚本（在 AP 上执行，输出 | 分隔的行式数据，避免依赖 jsonfilter）
@@ -228,6 +220,14 @@ sane() { printf '%s' "$1" | tr '|\n\r' '   '; }
 
 echo "HOST|$(sane "$(cat /proc/sys/kernel/hostname 2>/dev/null || hostname)")"
 echo "UPTIME|$(cut -d. -f1 /proc/uptime 2>/dev/null)"
+# 最近一次成功应用写下的版本号；没有这个文件说明从没被本应用下发过。
+echo "VER|$(sane "$(cat /etc/mesh-lite.ver 2>/dev/null)")"
+# 可选协作代理是否在线（有它就能拿到结构化状态，不必解析文本）。
+if ubus list 2>/dev/null | grep -qx 'mesh-lite-agent'; then
+	echo "AGENT|1"
+else
+	echo "AGENT|0"
+fi
 
 uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device$/ { print $2 }' | while read -r d; do
 	band=$(uci -q get wireless.$d.band)
@@ -238,6 +238,8 @@ uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device$/ { print $2 }' | wh
 	echo "DEV|$(sane "$d")|$(sane "$band")|$(sane "$ch")|$(sane "$cur")|$(sane "$tp")|$(sane "$ht")"
 done
 
+# BSS 行 12 个字段：name|dev|mode|ssid|enc|r|md|k|v|hidden|haskey|ds
+# 字段顺序必须与 parse_poll_output 的 read 变量顺序严格一致，否则会整体错位。
 uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface$/ { print $2 }' | while read -r s; do
 	dev=$(uci -q get wireless.$s.device)
 	mode=$(uci -q get wireless.$s.mode)
@@ -249,52 +251,61 @@ uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface$/ { print $2 }' | whi
 	v=$(uci -q get wireless.$s.bss_transition)
 	hid=$(uci -q get wireless.$s.hidden)
 	key=$(uci -q get wireless.$s.key)
+	ds=$(uci -q get wireless.$s.ft_over_ds)
 	[ -n "$key" ] && key=1 || key=0
-	echo "BSS|$(sane "$s")|$(sane "$dev")|$(sane "$mode")|$(sane "$ssid")|$(sane "$enc")|$(sane "$r")|$(sane "$md")|$(sane "$k")|$(sane "$v")|$(sane "$hid")|$key"
+	echo "BSS|$(sane "$s")|$(sane "$dev")|$(sane "$mode")|$(sane "$ssid")|$(sane "$enc")|$(sane "$r")|$(sane "$md")|$(sane "$k")|$(sane "$v")|$(sane "$hid")|$key|$(sane "$ds")"
 done
 EOS
 }
 
 parse_poll_output() {
-	local f="$1" ip="$2" host="" up="" type a b c d e g h i j k
+	local f="$1" ip="$2" host="" up="" ver="" agent=0
+	local type name dev mode ssid enc rr md kk vv hid haskey ds
 
 	host="$(sed -n 's/^HOST|//p' "$f" | head -n1)"
 	up="$(sed -n 's/^UPTIME|//p' "$f" | head -n1)"
+	ver="$(sed -n 's/^VER|//p' "$f" | head -n1)"
+	[ "$(sed -n 's/^AGENT|//p' "$f" | head -n1)" = "1" ] && agent=1
 
 	json_init
 	json_add_boolean ok 1
 	json_add_string ip "$ip"
 	json_add_string hostname "$host"
 	json_add_string uptime "$up"
+	json_add_string ver "$ver"
+	json_add_boolean agent "$agent"
 
 	json_add_array devices
-	while IFS='|' read -r type a b c d e g; do
+	while IFS='|' read -r type name dev mode ssid enc rr md kk vv hid haskey ds; do
 		[ "$type" = "DEV" ] || continue
 		json_add_object ""
-		json_add_string dev "$a"
-		json_add_string band "$b"
-		json_add_string channel "$c"
-		json_add_string cur_channel "$d"
-		json_add_string txpower "$e"
-		json_add_string htmode "$g"
+		json_add_string dev "$name"
+		json_add_string band "$dev"
+		json_add_string channel "$mode"
+		json_add_string cur_channel "$ssid"
+		json_add_string txpower "$enc"
+		json_add_string htmode "$rr"
 		json_close_object
 	done < "$f"
 	json_close_array
 
 	json_add_array bss
-	while IFS='|' read -r type a b c d e g h i j k; do
+	# 12 个字段，顺序与 build_poll_payload 的 BSS 行严格对应。
+	while IFS='|' read -r type name dev mode ssid enc rr md kk vv hid haskey ds; do
 		[ "$type" = "BSS" ] || continue
 		json_add_object ""
-		json_add_string name "$a"
-		json_add_string dev "$b"
-		json_add_string mode "$c"
-		json_add_string ssid "$d"
-		json_add_string encryption "$e"
-		json_add_string r "$g"
-		json_add_string md "$h"
-		json_add_string k "$i"
-		json_add_string v "$j"
-		json_add_string hidden "$k"
+		json_add_string name "$name"
+		json_add_string dev "$dev"
+		json_add_string mode "$mode"
+		json_add_string ssid "$ssid"
+		json_add_string encryption "$enc"
+		json_add_string r "$rr"
+		json_add_string md "$md"
+		json_add_string k "$kk"
+		json_add_string v "$vv"
+		json_add_string hidden "$hid"
+		json_add_string key "$haskey"
+		json_add_string ds "$ds"
 		json_close_object
 	done < "$f"
 	json_close_array
@@ -320,13 +331,15 @@ do_poll() {
 	cmd="echo '$b64p' | base64 -d | sh"
 
 	# 一次一台：AC 侧串行调用，单台结果返回后才轮到下一台。
-	out="$(ssh_key_run "$ip" root "$cmd")"
+	# 走 ssh_cred_run：密钥不通时可用已保存的覆盖凭据登录（凭据阶梯的最后一环）。
+	out="$(ssh_cred_run "$ip" root "$cmd" 2>/dev/null)"
 
 	if [ -z "$out" ]; then
 		json_init
 		json_add_boolean ok 0
 		json_add_string ip "$ip"
 		json_add_string error "ssh failed or empty output"
+		json_add_string detail "$(ssh_err_detail)"
 		json_dump
 		return
 	fi
@@ -339,6 +352,8 @@ do_poll() {
 
 # M2：应用本机无线配置后重载 hostapd
 do_apply_wireless() {
+	local ver="" rc=0
+
 	if ! command -v wifi >/dev/null 2>&1; then
 		json_init
 		json_add_boolean ok 0
@@ -347,10 +362,24 @@ do_apply_wireless() {
 		return
 	fi
 
+	json_get_var ver ver
+
 	wifi reload >/dev/null 2>&1
+	rc=$?
 
 	json_init
+	if [ "$rc" -ne 0 ]; then
+		json_add_boolean ok 0
+		json_add_string error "wifi reload failed (rc=$rc)"
+		json_dump
+		return
+	fi
+
+	# 本机也记一份版本标记：当 AC 同时承担 AP 角色时，巡检读回的版本才有意义。
+	[ -n "$ver" ] && echo "$ver" > "$VER_FILE" 2>/dev/null
+
 	json_add_boolean ok 1
+	json_add_string ver "$ver"
 	json_dump
 }
 
@@ -475,27 +504,79 @@ secret_remove() {
 # ------------------------------------------------------------------ SSH ---
 # dropbear 客户端支持 -y（始终接受主机密钥），不支持 OpenSSH 的 -o/ConnectTimeout，
 # 因此用 timeout 包裹整条命令，保证 AP 离线时也能在有限时间内返回。
+# 没有 timeout 命令时退化为「后台执行 + 逐秒检查 + 到点 kill」，避免无限挂起。
 run_timeout() {
 	local secs="$1"
 	shift
 
 	if command -v timeout >/dev/null 2>&1; then
 		timeout "$secs" "$@"
-	else
-		"$@"
+		return $?
 	fi
+
+	"$@" &
+	local pid=$! i=0
+	while kill -0 "$pid" 2>/dev/null; do
+		i=$((i + 1))
+		if [ "$i" -ge "$secs" ]; then
+			kill "$pid" 2>/dev/null
+			wait "$pid" 2>/dev/null
+			return 124
+		fi
+		sleep 1
+	done
+	wait "$pid" 2>/dev/null
 }
 
 ssh_key_run() {
 	local ip="$1" user="$2" cmd="$3"
 
-	run_timeout "$SSH_TIMEOUT" ssh -y -q -T -i "$KEY" -l "$user" "$ip" "$cmd" 2>/dev/null
+	run_timeout "$SSH_TIMEOUT" ssh $SSH_HOSTKEY_ARGS -q -T -i "$KEY" -l "$user" "$ip" "$cmd" 2>/dev/null
 }
 
+# 密码通过环境变量传给 sshpass，避免出现在本机进程命令行里（ps 可见）。
 ssh_pass_run() {
 	local ip="$1" user="$2" pass="$3" cmd="$4"
 
-	run_timeout "$SSH_TIMEOUT" sshpass -p "$pass" ssh -y -q -T -l "$user" "$ip" "$cmd" 2>/dev/null
+	SSHPASS="$pass" run_timeout "$SSH_TIMEOUT" sshpass -e ssh $SSH_HOSTKEY_ARGS -q -T -l "$user" "$ip" "$cmd" 2>/dev/null
+}
+
+# 统一入口：先试密钥，失败则用凭据阶梯里存下来的覆盖凭据（若有 sshpass）。
+# 返回 0 表示命令执行成功；失败原因写入 SSH_ERR_FILE（因为本函数常在 $( ) 里执行，
+# 子 shell 里的变量改动传不回调用方，只能走文件）。
+SSH_ERR_FILE="${TMPDIR:-/tmp}/mesh-lite-ssh.err"
+ssh_err_detail() { cat "$SSH_ERR_FILE" 2>/dev/null; }
+
+ssh_cred_run() {
+	local ip="$1" user="$2" cmd="$3" stored su sp out
+
+	: > "$SSH_ERR_FILE" 2>/dev/null
+
+	if out="$(ssh_key_run "$ip" "$user" "$cmd")"; then
+		printf '%s' "$out"
+		return 0
+	fi
+
+	stored="$(secret_lookup "$ip")"
+	if [ -n "$stored" ] && command -v sshpass >/dev/null 2>&1; then
+		su="$(printf '%s' "$stored" | cut -f1)"
+		sp="$(printf '%s' "$stored" | cut -f2)"
+		[ -n "$su" ] || su="$user"
+
+		if out="$(ssh_pass_run "$ip" "$su" "$sp" "$cmd")"; then
+			printf '%s' "$out"
+			return 0
+		fi
+		printf '%s' "stored credential rejected" > "$SSH_ERR_FILE" 2>/dev/null
+		return 1
+	fi
+
+	if [ -n "$stored" ]; then
+		printf '%s' "stored credential found but sshpass missing" > "$SSH_ERR_FILE" 2>/dev/null
+	else
+		printf '%s' "no ssh key access and no stored credential" > "$SSH_ERR_FILE" 2>/dev/null
+	fi
+	return 1
 }
 
 key_login_ok() {
@@ -657,14 +738,17 @@ b64() {
 }
 
 # 生成远端执行的脚本（不含本机路径，全部值走 base64）。
+# 参数：$1 = mobility_domain，$2 = config_ver（可选，用于收敛比对）
 build_apply_payload() {
-	local md ssid psk enc beacon r2 r5 k v ds ftlocal payload
+	local md ssid psk enc beacon r2 r5 k v ds ftlocal hidden ver payload
 
 	md="$1"
+	ver="${2:-}"
 	ssid="$(uci -q get mesh_lite.profile.ssid)"
 	psk="$(uci -q get mesh_lite.profile.key)"
 	enc="$(uci -q get mesh_lite.profile.encryption)"
 	beacon="$(uci -q get mesh_lite.profile.beacon)"
+	hidden="$(uci -q get mesh_lite.profile.hidden)"
 	r2="$(uci -q get mesh_lite.profile.enable_r_2g)"
 	r5="$(uci -q get mesh_lite.profile.enable_r_5g)"
 	k="$(uci -q get mesh_lite.general.enable_k)"
@@ -674,6 +758,8 @@ build_apply_payload() {
 
 	[ -n "$enc" ] || enc="psk2"
 	[ -n "$beacon" ] || beacon="100"
+	[ -n "$hidden" ] || hidden="0"
+	[ -n "$ver" ] || ver="0"
 	[ -n "$r2" ] || r2="0"
 	[ -n "$r5" ] || r5="1"
 	[ -n "$k" ] || k="1"
@@ -682,6 +768,8 @@ build_apply_payload() {
 	[ -n "$ftlocal" ] || ftlocal="1"
 
 	# 静态模板 + 占位符替换：模板用引号 heredoc，避免反斜杠/美元符号被本机 shell 解析。
+	# 结尾用 MESHLITE_OK / MESHLITE_ERR 回报真实结果：commit 或 reload 失败时为非零退出码，
+	# 上层据此判定失败，而不是像旧版那样一律 exit 0 让 AC 误判成功。
 	payload="$(cat <<'EOS'
 #!/bin/sh
 ssid=$(echo '@SSID@' | base64 -d)
@@ -689,6 +777,8 @@ psk=$(echo '@PSK@' | base64 -d)
 enc=$(echo '@ENC@' | base64 -d)
 beacon=$(echo '@BEACON@' | base64 -d)
 md=$(echo '@MD@' | base64 -d)
+hidden=$(echo '@HIDDEN@' | base64 -d)
+ver='@VER@'
 r2='@R2@'
 r5='@R5@'
 k='@K@'
@@ -704,7 +794,7 @@ for s in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface$/ { print 
 	if [ "$band" = "2g" ]; then wr="$r2"; else wr="$r5"; fi
 
 	uci set wireless.$s.ssid="$ssid"
-	uci set wireless.$s.hidden='0'
+	uci set wireless.$s.hidden="$hidden"
 	uci set wireless.$s.beacon_int="$beacon"
 
 	if [ "$enc" = "none" ]; then
@@ -731,9 +821,13 @@ for s in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface$/ { print 
 	uci set wireless.$s.bss_transition="$v"
 done
 
-uci commit wireless
-wifi reload >/dev/null 2>&1
-exit 0
+uci commit wireless >/dev/null 2>&1 || { echo "MESHLITE_ERR|uci commit wireless failed"; exit 11; }
+
+# 版本标记独立于 UCI：即使 AP 上没装本应用也能被巡检读到。
+echo "$ver" > /etc/mesh-lite.ver 2>/dev/null
+
+wifi reload >/dev/null 2>&1 || { echo "MESHLITE_ERR|wifi reload failed"; exit 12; }
+echo "MESHLITE_OK"
 EOS
 )"
 
@@ -743,6 +837,8 @@ EOS
 		      -e "s|@ENC@|$(b64 "$enc")|g" \
 		      -e "s|@BEACON@|$(b64 "$beacon")|g" \
 		      -e "s|@MD@|$(b64 "$md")|g" \
+		      -e "s|@HIDDEN@|$(b64 "$hidden")|g" \
+		      -e "s|@VER@|$ver|g" \
 		      -e "s|@R2@|$r2|g" \
 		      -e "s|@R5@|$r5|g" \
 		      -e "s|@K@|$k|g" \
@@ -754,9 +850,10 @@ EOS
 }
 
 do_apply_nodes() {
-	local md="" ip="" name="" payload="" b64p="" cmd="" count=0 fail=0 ok=0 err=""
+	local md="" ver="" ip="" name="" payload="" b64p="" cmd="" count=0 fail=0 ok=0 err="" out=""
 
 	json_get_var md md
+	json_get_var ver ver
 
 	if [ -z "$md" ]; then
 		json_init
@@ -766,7 +863,10 @@ do_apply_nodes() {
 		return
 	fi
 
-	payload="$(build_apply_payload "$md")"
+	[ -n "$ver" ] || ver="$(uci -q get mesh_lite.general.config_ver)"
+	case "$ver" in ''|*[!0-9]*) ver=0 ;; esac
+
+	payload="$(build_apply_payload "$md" "$ver")"
 	b64p="$(printf '%s' "$payload" | base64 | tr -d '\n')"
 	cmd="echo '$b64p' | base64 -d | sh"
 
@@ -780,27 +880,47 @@ do_apply_nodes() {
 
 		ok=0
 		err=""
+		out="$(ssh_cred_run "$ip" root "$cmd" 2>/dev/null)"
 
-		if ! key_login_ok "$ip" root; then
-			err="no ssh access"
-		elif ssh_key_run "$ip" root "$cmd" >/dev/null 2>&1; then
-			ok=1
+		case "$out" in
+			*MESHLITE_OK*)
+				ok=1
+				;;
+			*MESHLITE_ERR*)
+				err="$(printf '%s' "$out" | sed -n 's/.*MESHLITE_ERR|//p' | head -n1)"
+				[ -n "$err" ] || err="remote apply failed"
+				;;
+			*)
+				[ -n "$out" ] && err="unexpected remote output"
+				[ -n "$err" ] || err="$(ssh_err_detail)"
+				;;
+		esac
+
+		if [ "$ok" = "1" ]; then
+			count=$((count + 1))
+			uci -q set "mesh_lite.$s.applied_ver=$ver"
 		else
-			err="apply failed"
+			fail=$((fail + 1))
 		fi
-
-		[ "$ok" = "1" ] && count=$((count + 1)) || fail=$((fail + 1))
 
 		json_add_object ""
 		json_add_string ip "$ip"
 		json_add_string name "$name"
 		json_add_boolean ok "$ok"
+		json_add_string ver "$ver"
 		[ -n "$err" ] && json_add_string error "$err"
 		json_close_object
 	done
 
 	json_close_array
+	[ "$count" -gt 0 ] && uci -q commit mesh_lite
+	# 全部成功才推进本地版本号，避免部分失败时把"期望版本"抬到 AP 追不上的位置。
+	if [ "$fail" -eq 0 ] && [ "$count" -gt 0 ]; then
+		uci -q set "mesh_lite.general.config_ver=$ver"
+		uci -q commit mesh_lite
+	fi
 	json_add_boolean ok "$([ "$fail" -eq 0 ] && echo 1 || echo 0)"
+	json_add_string ver "$ver"
 	json_add_int count "$count"
 	json_add_int failed "$fail"
 	json_dump
@@ -825,7 +945,8 @@ do_harden() {
 		return
 	fi
 
-	out="$(ssh_key_run "$ip" root "uci set dropbear.@dropbear[0].PasswordAuth='off'; uci commit dropbear; /etc/init.d/dropbear restart >/dev/null 2>&1; echo done")"
+	# 重启放到后台：先把回执吐回来，避免 dropbear 被重启时当前会话被切断导致结果丢失。
+	out="$(ssh_cred_run "$ip" root "uci set dropbear.@dropbear[0].PasswordAuth='off'; uci commit dropbear >/dev/null 2>&1 || { echo 'MESHLITE_ERR|commit dropbear failed'; exit 1; }; ( sleep 1; /etc/init.d/dropbear restart >/dev/null 2>&1 ) & echo done")"
 
 	json_init
 	if [ "$out" = "done" ]; then
@@ -833,8 +954,38 @@ do_harden() {
 	else
 		json_add_boolean ok 0
 		json_add_string error "harden failed"
+		[ -n "$out" ] && json_add_string detail "$out"
+		[ -n "$out" ] || json_add_string detail "$(ssh_err_detail)"
 	fi
 	json_add_string ip "$ip"
+	json_dump
+}
+
+# 可选协作代理：AP 上若装了 mesh-lite-agent，就能直接拿到结构化状态，
+# 不必解析行式文本。没装时返回 agent=0，上层自动退回 poll。
+do_agent_status() {
+	local ip="" out=""
+
+	json_get_var ip ip
+
+	if [ -z "$ip" ]; then
+		json_init; json_add_boolean ok 0; json_add_string error "missing ip"; json_dump; return
+	fi
+
+	out="$(ssh_cred_run "$ip" root "ubus call $AGENT_OBJ status 2>/dev/null")"
+
+	json_init
+	json_add_string ip "$ip"
+	if [ -n "$out" ] && printf '%s' "$out" | grep -q '"clients"\|"version"'; then
+		json_add_boolean ok 1
+		json_add_boolean agent 1
+		json_add_string status_json "$out"
+	else
+		json_add_boolean ok 0
+		json_add_boolean agent 0
+		json_add_string error "agent not available"
+		json_add_string detail "$(ssh_err_detail)"
+	fi
 	json_dump
 }
 
@@ -853,9 +1004,10 @@ case "$1" in
 	"auth_verify": { "ip": "str" },
 	"auth_forget": { "ip": "str" },
 	"poll": { "ip": "str" },
-	"apply_wireless": {},
+	"agent_status": { "ip": "str" },
+	"apply_wireless": { "ver": "str" },
 	"verify_wireless": {},
-	"apply_nodes": { "md": "str" },
+	"apply_nodes": { "md": "str", "ver": "str" },
 	"radio_info": {},
 	"harden": { "ip": "str" }
 }
@@ -875,6 +1027,7 @@ EOF
 			auth_verify)	do_auth_verify ;;
 			auth_forget)	do_auth_forget ;;
 			poll)		do_poll ;;
+			agent_status)	do_agent_status ;;
 			apply_wireless)	do_apply_wireless ;;
 			verify_wireless) do_verify_wireless ;;
 			apply_nodes)	do_apply_nodes ;;
