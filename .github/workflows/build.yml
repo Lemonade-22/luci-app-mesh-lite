@@ -12,7 +12,9 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest rolled to 26.04 on 2026-11-05, which ships uutils
+    # coreutils; the OpenWrt SDK host check greps for "GNU coreutils" and fails.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -43,7 +45,9 @@ jobs:
   release:
     name: publish-release
     needs: build
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest rolled to 26.04 on 2026-11-05, which ships uutils
+    # coreutils; the OpenWrt SDK host check greps for "GNU coreutils" and fails.
+    runs-on: ubuntu-24.04
     if: github.event_name != 'pull_request'
     steps:
       - name: Checkout
