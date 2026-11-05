@@ -96,7 +96,8 @@
 - 真实 hostapd 的 `get_config` 输出格式（不同 wpad 版本可能有差异）；
 - `iwinfo` 输出格式（部分平台无 Tx-Power 行）；
 - SSH 到真实 AP 的授权与下发（需要 sshpass 与真机）；
-- `mesh-lite-agent` 在真机上的 ubus 返回、速率采样与只读性（本地无 ucode，只做了 `tests/agent-test.sh` 静态契约测试）；
+- `mesh-lite-agent` 在真实无线驱动下的字段差异（已在 WSL 用源码编译的 ucode + ubusd + 模拟 AP
+  跑通 15 项，见 `tests/agent-smoke.sh`；真实 hostapd/iw 输出变体待上机）；
 - 任何真机行为。
 
 ---

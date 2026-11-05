@@ -64,6 +64,33 @@ function macnorm(m) {
 	return lc(replace(m ?? "", /[^0-9a-fA-F]/g, ""));
 }
 
+// 统一输出为小写冒号分隔：hostapd 给的是小写，ubus 键可能大小写混杂，
+// 不同大小写会让 AC 侧匹配同一台设备时对不上。
+function maccolon(mn) {
+	let out = [];
+
+	for (let i = 0; i < 6; i++)
+		push(out, substr(mn, i * 2, 2));
+
+	return join(":", out);
+}
+
+// 保留 1 位小数（速率）／2 位小数（实测速度），避免 JSON 里出现
+// 866.70000000000005 这类浮点噪声。
+//
+// 注意：ucode 里 int / int 是整除（会截断小数），所以除数必须用浮点。
+function round_to(v, digits) {
+	if (v == null)
+		return null;
+
+	let f = 1.0;
+
+	for (let i = 0; i < digits; i++)
+		f *= 10;
+
+	return int(v * f + 0.5) / f;
+}
+
 // 只读地创建 UCI 游标：不调用 set/commit/delete。
 function uci_read(config) {
 	let c = uci.cursor();
@@ -213,6 +240,21 @@ function payload_status() {
 		dev = brdev;
 
 	let mac = trim(read_text(sprintf("/sys/class/net/%s/address", dev), ""));
+
+	// 部分设备（DSA / 无桥接）没有 br-lan：退回第一个带合法 MAC 的物理接口。
+	if (length(macnorm(mac)) != 12) {
+		for (let f in fs.glob("/sys/class/net/*/address")) {
+			if (index(f, "/lo/") >= 0)
+				continue;
+
+			let m = trim(read_text(f, ""));
+
+			if (length(macnorm(m)) == 12) {
+				mac = m;
+				break;
+			}
+		}
+	}
 	let ifaces = wifi_ifaces();
 	let total = 0;
 
@@ -230,7 +272,7 @@ function payload_status() {
 		protocol: PROTOCOL,
 		version: AGENT_VERSION,
 		hostname: trim(read_text("/proc/sys/kernel/hostname", "OpenWrt")),
-		mac: mac,
+		mac: length(macnorm(mac)) == 12 ? maccolon(macnorm(mac)) : mac,
 		ip: st?.["ipv4-address"]?.[0]?.address ?? "",
 		model: trim(read_text("/tmp/sysinfo/model", "")),
 		uptime: up,
@@ -311,7 +353,7 @@ function payload_clients() {
 			let lease = leases[mn] ?? {};
 
 			push(clients, {
-				mac: uc(mac),
+				mac: maccolon(mn),
 				ip: lease.ip ?? "",
 				hostname: lease.hostname ?? "",
 				ifname: it.ifname,
@@ -320,10 +362,10 @@ function payload_clients() {
 				rssi: ci.signal ?? null,
 				connected_time: ci.connected_time ?? null,
 				// hostapd 的 rate 单位是 100 kbit/s
-				tx_rate: ci.rate?.tx != null ? ci.rate.tx / 100000.0 : null,
-				rx_rate: ci.rate?.rx != null ? ci.rate.rx / 100000.0 : null,
-				rx_speed: sp.rx,
-				tx_speed: sp.tx,
+				tx_rate: ci.rate?.tx != null ? round_to(ci.rate.tx / 100000.0, 1) : null,
+				rx_rate: ci.rate?.rx != null ? round_to(ci.rate.rx / 100000.0, 1) : null,
+				rx_speed: round_to(sp.rx, 2),
+				tx_speed: round_to(sp.tx, 2),
 			});
 		}
 	}

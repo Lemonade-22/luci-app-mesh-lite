@@ -177,12 +177,13 @@ agent_status(ip):
 
 ### 9.3 已知限制
 
-- **真机未验证**：仓库环境没有 ucode，只能做静态契约测试。首次上机需确认
-  `ubus call mesh-lite-agent status` 的返回与 §4 一致。
+- **真机未验证**：已在 WSL(Ubuntu 24.04) 用源码编译的 ucode + ubusd + 模拟 AP 跑通（见 9.6），
+  但真实驱动下的 `iw station dump` / hostapd 字段差异仍需上机确认。
 - 首次请求的 `rx_speed`/`tx_speed` 必为 `null`（需要至少两个采样点，约 5–10 秒后才有值）。
 - `iw station dump` 依赖 `iw` 包；未装时速率字段为 `null`，其余字段不受影响。
-- `mac` 取 `br-lan` 的地址；LAN 不是 `br-lan` 命名时按 `network.interface.lan` 的
-  `device`/`l3_device` 回退，再退到 `br-lan`。
+- `mac` 优先取 `network.interface.lan` 的 `device`；无桥接时退回第一个带合法 MAC 的物理接口。
+- 速率等数值是 JSON double，`866.7` 在序列化后可能显示为 `866.70000000000005`；
+  这是 IEEE754 表示问题，消费端按需格式化（LuCI 侧用 `toFixed(1)`）。
 
 ### 9.4 如何验证只读
 
@@ -201,3 +202,58 @@ ubus call mesh-lite-agent status
   后两者失败一律降级为空结果，不影响巡检结论。
 - 客户端明细表只渲染**信号与速率**（RSSI、协商 Tx/Rx、实时 Tx/Rx），按弱信号优先排序。
   **不做厂商/品牌识别**（不拉 OUI 库、不拉品牌图标），这是明确的范围约定。
+
+### 9.6 本机运行时验证（WSL + 真实 ucode/ubusd）
+
+仓库所在机器没有 ucode，因此这台 Windows 机器上用 WSL(Ubuntu 24.04) 从源码构建了完整运行时，
+并用 `tests/agent-smoke.sh` 做端到端验证。
+
+构建步骤（WSL 内以 root 执行，约 5 分钟）：
+
+```sh
+apt-get install -y libjson-c-dev
+
+git clone --depth 1 https://github.com/openwrt/libubox  && cd libubox
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_LUA=OFF && make -C build -j && make -C build install
+
+git clone --depth 1 https://github.com/openwrt/uci && cd ../uci
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_LUA=OFF && make -C build -j && make -C build install
+
+git clone --depth 1 https://github.com/openwrt/ubus && cd ../ubus
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local && make -C build -j && make -C build install
+# -> /usr/local/sbin/ubusd, /usr/local/bin/ubus
+
+git clone --depth 1 https://github.com/jow-/ucode && cd ../ucode
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -DUCI_SUPPORT=ON -DUBUS_SUPPORT=ON -DULOOP_SUPPORT=ON -DFS_SUPPORT=ON
+make -C build -j && make -C build install
+ldconfig
+# -> /usr/local/bin/ucode + /usr/local/lib/ucode/{fs,ubus,uci,uloop,...}.so
+```
+
+运行：
+
+```sh
+cp mesh-lite-agent/root/usr/bin/mesh-lite-agent /root/mesh-lite-agent
+sudo bash tests/agent-smoke.sh
+```
+
+测试会起 `ubusd`，用一个 mock 的 `network.wireless` / `hostapd.phy0-ap0` / `iw` / leases
+喂数据，然后检查 15 项：
+
+| 组 | 检查 |
+|---|---|
+| 发布 | ubus 对象 `mesh-lite-agent` 出现 |
+| status | `protocol=1`、`config_ver` 与 `/etc/mesh-lite.ver` 一致、`clients_total`、`mac` 已规范化 |
+| hostapd_config | `mobility_domain`、`ieee80211r`、接口与 UCI section 对应 |
+| clients | RSSI、协商速率换算（866.7 Mbps）、leases 富化、MAC 统一小写、二次采样出实时速率 |
+| 只读 | `/etc/config/wireless` 校验和前后一致 |
+
+**2026-11-05 实测结果：15/15 通过。** 这一轮还发现并修掉两个真实缺陷：
+
+1. MAC 大小写不一致 —— 原先用 `uc()` 把整串转大写，同一终端在不同来源下大小写不同；
+   改为统一的 `maccolon()` 小写冒号格式。
+2. `round_to` 用了整数除法，把 `866.7` 截成 `866`、`0.33` 截成 `0`；
+   改成浮点除数（与代码里已写明的 ucode 整除陷阱同源）。
+
+**仍未验证**：真实无线驱动下 `iw station dump` 与 hostapd `get_clients` 的字段差异。
