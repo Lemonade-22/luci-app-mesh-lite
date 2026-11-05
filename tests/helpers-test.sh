@@ -63,7 +63,17 @@ STUB
 cat > "$TMP/bin/ssh" <<'STUB'
 #!/bin/sh
 echo "ssh-called" > "$TEST_TMP/ssh.log"
+[ "${TEST_FAIL_SSH:-0}" = "1" ] && exit 1
 echo "stub-host"
+exit 0
+STUB
+
+cat > "$TMP/bin/sshpass" <<'STUB'
+#!/bin/sh
+# 记录参数与环境变量，用于验证密码没有出现在命令行里。
+echo "$*" > "$TEST_TMP/sshpass-args.log"
+printf '%s' "${SSHPASS:-}" > "$TEST_TMP/sshpass-env.log"
+echo "pass-host"
 exit 0
 STUB
 
@@ -73,7 +83,7 @@ cp "$SELF_DIR/stub/iwinfo" "$TMP/bin/iwinfo"
 
 chmod +x "$TMP/bin/dropbearkey" "$TMP/bin/opkg" "$TMP/bin/wifi" \
 	"$TMP/bin/hostapd_cli" "$TMP/bin/uci" "$TMP/bin/iwinfo" \
-	"$TMP/bin/timeout" "$TMP/bin/ssh"
+	"$TMP/bin/timeout" "$TMP/bin/ssh" "$TMP/bin/sshpass"
 
 PATH="$TMP/bin:$PATH"
 export PATH
@@ -205,13 +215,31 @@ check "ssh_key_run 返回远端输出" "stub-host" "$SSH_OUT"
 check "ssh 被调用" "1" "$([ -f "$TMP/ssh.log" ] && echo 1 || echo 0)"
 check "timeout 使用默认 10 秒" "10" "$(head -n1 "$TMP/timeout.log" 2>/dev/null)"
 
+# ------------------------------------------------------- SSH 凭据兜底 ----
+check "ssh_cred_run: 密钥可用时直连" "stub-host" "$(ssh_cred_run 192.168.1.21 root true)"
+
+secret_store 192.168.1.30 root 'pw9'
+check "ssh_cred_run: 密钥失败时用已存凭据" "pass-host" \
+	"$(TEST_FAIL_SSH=1 ssh_cred_run 192.168.1.30 root true)"
+
+contains "sshpass: 走 -e 而不是 -p" "-e ssh" "$(cat "$TMP/sshpass-args.log" 2>/dev/null)"
+check "sshpass: 命令行不含明文密码" "0" \
+	"$(grep -c 'pw9' "$TMP/sshpass-args.log" 2>/dev/null || true)"
+check "sshpass: 密码经环境变量传递" "pw9" "$(cat "$TMP/sshpass-env.log" 2>/dev/null)"
+
 # --------------------------------------------------------------- 下发脚本 ---
-PAYLOAD="$(build_apply_payload 'a1b2')"
+PAYLOAD="$(build_apply_payload 'a1b2' 3)"
 
 printf '%s' "$PAYLOAD" | sh -n 2>/dev/null
 check "payload: 语法有效" "0" "$?"
 
 contains "payload: MD 走 base64" "md=\$(echo 'YTFiMg==' | base64 -d)" "$PAYLOAD"
+contains "payload: 版本号已替换" "ver='3'" "$PAYLOAD"
+contains "payload: hidden 走 base64 而非硬编码" "hidden=\$(echo 'MA==' | base64 -d)" "$PAYLOAD"
+contains "payload: 不再固定写 hidden=0" "uci set wireless.\$s.hidden=\"" "$PAYLOAD"
+contains "payload: 成功哨兵" "MESHLITE_OK" "$PAYLOAD"
+contains "payload: 失败可回报" "MESHLITE_ERR" "$PAYLOAD"
+contains "payload: 写版本标记" "/etc/mesh-lite.ver" "$PAYLOAD"
 contains "payload: 2.4G 不开 802.11r" "r2='0'" "$PAYLOAD"
 contains "payload: 5G 开 802.11r" "r5='1'" "$PAYLOAD"
 contains "payload: 遍历 AP 接口" "=wifi-iface" "$PAYLOAD"
@@ -233,14 +261,21 @@ SAMPLE="$TMP/poll-sample.txt"
 cat > "$SAMPLE" <<'S'
 HOST|ap-01
 UPTIME|100
+VER|7
+AGENT|0
 DEV|radio0|2g|6|6|20|HT20
-BSS|default_radio0|radio0|ap|Home|psk2|1|a1b2|1|1|0
+BSS|default_radio0|radio0|ap|Home|psk2|1|a1b2|1|1|0|1|1
 S
 PARSED="$(parse_poll_output "$SAMPLE" 192.168.1.21)"
 contains "parse: 主机名" '"hostname":"ap-01"' "$PARSED"
 contains "parse: 接口 SSID" '"ssid":"Home"' "$PARSED"
 contains "parse: 移动域" '"md":"a1b2"' "$PARSED"
 contains "parse: 射频当前信道" '"cur_channel":"6"' "$PARSED"
+contains "parse: 密码字段不再丢失" '"key":"1"' "$PARSED"
+contains "parse: hidden 不再错位" '"hidden":"0"' "$PARSED"
+contains "parse: FT over DS 字段" '"ds":"1"' "$PARSED"
+contains "parse: 远端版本号" '"ver":"7"' "$PARSED"
+contains "parse: 代理在线标记" '"agent":false' "$PARSED"
 check "parse: BSS 数量" "1" "$(printf '%s' "$PARSED" | grep -o '"name"' | wc -l | tr -d ' ')"
 
 # --------------------------------------------------------------- 应用无线 ---

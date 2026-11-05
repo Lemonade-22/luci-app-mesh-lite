@@ -4,22 +4,13 @@
 'require uci';
 'require rpc';
 'require ui';
+'require mesh-lite.common as mc';
 
 var callRadioInfo = rpc.declare({
 	object: 'mesh-lite',
 	method: 'radio_info',
 	expect: {}
 });
-
-/* 与 profile 页保持一致的 SSID -> 移动域派生规则。 */
-function deriveMd(ssid) {
-	var h = 5381;
-
-	for (var i = 0; i < ssid.length; i++)
-		h = ((h << 5) + h + ssid.charCodeAt(i)) >>> 0;
-
-	return ('000' + (h & 0xffff).toString(16)).slice(-4);
-}
 
 /* 覆盖值：'1' 强制开、'0' 强制关、其它（含空）使用自动值。 */
 function tri(opt, auto) {
@@ -34,15 +25,14 @@ function tri(opt, auto) {
 
 function computeEffective() {
 	var ssid = (uci.get('mesh_lite', 'profile', 'ssid') || '').trim();
-	var mdOv = (uci.get('mesh_lite', 'wizard', 'mobility_domain') || '').trim();
-	var mdExplicit = /^[0-9a-fA-F]{4}$/.test(mdOv);
 	var beaconOv = (uci.get('mesh_lite', 'wizard', 'beacon') || '').trim();
 	var beaconExplicit = /^[0-9]+$/.test(beaconOv);
 
 	return {
 		ssid: ssid,
-		md: mdExplicit ? mdOv.toLowerCase() : deriveMd(ssid),
-		mdExplicit: mdExplicit,
+		md: mc.effectiveMd(ssid),
+		mdExplicit: mc.mdIsExplicit(),
+		beaconExplicit: beaconExplicit,
 		r5: tri('enable_r_5g', true),
 		r2: tri('enable_r_2g', false),
 		k: tri('enable_k', true),
@@ -118,7 +108,7 @@ return view.extend({
 	resetWizard: function(ev) {
 		ev.preventDefault();
 
-		var keys = [ 'mobility_domain', 'enable_r_5g', 'enable_r_2g', 'enable_k',
+		var keys = [ 'enable_r_5g', 'enable_r_2g', 'enable_k',
 			'enable_v', 'ft_over_ds', 'ft_psk_generate_local', 'beacon' ];
 
 		keys.forEach(function(k) {
@@ -224,16 +214,8 @@ return view.extend({
 		w.anonymous = true;
 		w.addremove = false;
 
-		o = w.option(form.Value, 'mobility_domain', _('Mobility domain (MD)'),
-			_('Leave empty to derive from the SSID.'));
-		o.placeholder = eff.md + _('(auto)');
-		o.validate = function(section_id, value) {
-			if (!value)
-				return true;
-			if (!/^[0-9a-fA-F]{4}$/.test(value))
-				return _('Mobility domain must be four hex digits, e.g. a1b2');
-			return true;
-		};
+		/* MD 不再放在向导页：权威值统一在 /etc/config/mesh_lite 的 general 段，
+		   只在「配置模板」页设置，避免两个页面各写一份、互相覆盖。 */
 
 		o = w.option(form.ListValue, 'enable_r_5g', _('802.11r (5G)'));
 		o.value('', _('Auto (on)'));

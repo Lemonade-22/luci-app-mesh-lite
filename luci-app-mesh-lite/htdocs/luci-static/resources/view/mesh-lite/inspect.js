@@ -3,27 +3,18 @@
 'require uci';
 'require rpc';
 'require ui';
+'require mesh-lite.common as mc';
 
 var callPoll = rpc.declare({ object: 'mesh-lite', method: 'poll', params: [ 'ip' ], expect: {} });
 
-function deriveMd(ssid) {
-	var h = 5381;
-
-	for (var i = 0; i < ssid.length; i++)
-		h = ((h << 5) + h + ssid.charCodeAt(i)) >>> 0;
-
-	return ('000' + (h & 0xffff).toString(16)).slice(-4);
-}
-
 function expected() {
 	var ssid = (uci.get('mesh_lite', 'profile', 'ssid') || '').trim();
-	var mdOv = (uci.get('mesh_lite', 'wizard', 'mobility_domain') || '').trim();
-	var mdExplicit = /^[0-9a-fA-F]{4}$/.test(mdOv);
 
 	return {
 		ssid: ssid,
 		enc: uci.get('mesh_lite', 'profile', 'encryption') || 'psk2',
-		md: mdExplicit ? mdOv.toLowerCase() : deriveMd(ssid),
+		md: mc.effectiveMd(ssid),
+		ver: String(mc.currentConfigVer()),
 		r2: uci.get('mesh_lite', 'profile', 'enable_r_2g') === '1',
 		r5: uci.get('mesh_lite', 'profile', 'enable_r_5g') !== '0',
 		k: uci.get('mesh_lite', 'general', 'enable_k') !== '0',
@@ -102,6 +93,22 @@ return view.extend({
 			box.appendChild(E('p', { 'class': 'cbi-section-descr' },
 				_('Hostname: %s · uptime %s s').format(res.hostname || '-', res.uptime || '-')));
 
+			var nodeDiff = 0;
+
+			/* 收敛核对：期望版本来自本机 UCI，实际版本来自 AP 的 /etc/mesh-lite.ver。
+			   两者不一致说明这台 AP 还没吃到最近一次下发，或下发失败了。 */
+			var gotVer = (res.ver || '');
+			var verBad = (gotVer !== exp.ver);
+
+			box.appendChild(E('p', {
+				'style': 'margin:6px 0;color:' + (verBad ? '#c62828' : '#2e7d32')
+			}, verBad
+				? _('Config version: expected %s, AP reports %s (out of sync)').format(exp.ver, gotVer || _('none'))
+				: _('Config version: %s (in sync)').format(exp.ver)));
+
+			if (verBad)
+				nodeDiff++;
+
 			var rows = [E('tr', { 'class': 'tr table-titles' }, [
 				E('th', { 'class': 'th' }, _('Interface')),
 				E('th', { 'class': 'th' }, _('Band')),
@@ -113,8 +120,6 @@ return view.extend({
 				E('th', { 'class': 'th' }, _('802.11v')),
 				E('th', { 'class': 'th' }, _('Password'))
 			])];
-
-			var nodeDiff = 0;
 
 			(res.bss || []).forEach(function(b) {
 				if (b.mode !== 'ap')

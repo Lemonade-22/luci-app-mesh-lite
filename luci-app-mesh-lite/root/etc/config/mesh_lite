@@ -11,6 +11,10 @@ config settings 'general'
 	option ssh_timeout '10'
 	option poll_interval '30'
 	option secrets_path '/etc/mesh-lite/secrets'
+	# 收敛版本号：每次成功下发 +1，随 payload 写到 AP 的 /etc/mesh-lite.ver，巡检据此比对。
+	option config_ver '0'
+	# 1 = 校验收到的 AP 主机密钥（需先授权过，使密钥记录到 known_hosts）；0 = 沿用 ssh -y。
+	option ssh_strict_hostkey '0'
 
 config profile 'profile'
 	option ssid ''
@@ -28,7 +32,6 @@ config profile 'profile'
 	option enable_r_5g '1'
 
 config wizard 'wizard'
-	option mobility_domain ''
 	option enable_r_5g ''
 	option enable_r_2g ''
 	option enable_k ''
