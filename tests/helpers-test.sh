@@ -64,6 +64,11 @@ cat > "$TMP/bin/ssh" <<'STUB'
 #!/bin/sh
 echo "ssh-called" > "$TEST_TMP/ssh.log"
 [ "${TEST_FAIL_SSH:-0}" = "1" ] && exit 1
+# 允许测试注入一段"远端输出"，用来模拟 mesh-lite-agent 的 ubus 返回。
+if [ -n "${TEST_SSH_OUT_FILE:-}" ] && [ -f "$TEST_SSH_OUT_FILE" ]; then
+	cat "$TEST_SSH_OUT_FILE"
+	exit 0
+fi
 echo "stub-host"
 exit 0
 STUB
@@ -284,6 +289,56 @@ contains "apply_wireless: 返回 ok" '"ok":true' "$APPLY"
 
 NODES="$(do_apply_nodes)"
 contains "apply_nodes: 缺 MD 时报错" '"missing mobility_domain"' "$NODES"
+
+# ------------------------------------------------------------ 可选 agent ---
+# 先确认测试桩能读到调用参数（旧桩的 json_get_var 是空函数，会导致"缺 IP"误报）。
+check "jshn 桩: json_get_var 能取到 ip" "192.168.1.21" 	"$(json_load '{"ip":"192.168.1.21"}'; json_get_var ip ip; printf '%s' "$ip")"
+
+# 无 agent：远端只回一句无关文本 -> 协议不认识，必须判为不可用并回退。
+NOAGENT="$TMP/noagent.txt"
+echo "ubus: command not found" > "$NOAGENT"
+AG1="$(json_load '{"ip":"192.168.1.21"}'; TEST_SSH_OUT_FILE="$NOAGENT" do_agent_status)"
+contains "agent_status: 无 agent 时不可用" '"agent":false' "$AG1"
+contains "agent_status: 协议不匹配时明确报错" '"agent protocol mismatch"' "$AG1"
+
+# 有 agent：解析协议、配置版本、客户端总数。
+AGENT_OK="$TMP/agent-status.json"
+cat > "$AGENT_OK" <<'J'
+{
+	"ok": true,
+	"protocol": 1,
+	"version": "1.0.0",
+	"config_ver": "5",
+	"clients_total": 3
+}
+J
+AG2="$(json_load '{"ip":"192.168.1.21"}'; TEST_SSH_OUT_FILE="$AGENT_OK" do_agent_status)"
+contains "agent_status: 识别 agent" '"agent":true' "$AG2"
+contains "agent_status: 读出配置版本" '"config_ver":"5"' "$AG2"
+contains "agent_status: 读出客户端数" '"clients_total":3' "$AG2"
+
+# 协议版本不认识时必须回退，不能拿旧字段硬套。
+AGENT_OLD="$TMP/agent-old.json"
+echo '{"ok":true,"protocol":2,"config_ver":"5"}' > "$AGENT_OLD"
+AG3="$(json_load '{"ip":"192.168.1.21"}'; TEST_SSH_OUT_FILE="$AGENT_OLD" do_agent_status)"
+contains "agent_status: 旧协议回退" '"agent":false' "$AG3"
+contains "agent_status: 旧协议报错原因" 'expected 1, got 2' "$AG3"
+
+# 客户端明细：计数来自 ubus 返回的 mac 条数。
+AGENT_CL="$TMP/agent-clients.json"
+cat > "$AGENT_CL" <<'J'
+{
+	"ok": true,
+	"protocol": 1,
+	"clients": [
+		{ "mac": "11:22:33:44:55:66", "rssi": -58, "tx_rate": 866.7, "rx_rate": 650.0 },
+		{ "mac": "aa:bb:cc:dd:ee:ff", "rssi": -71, "tx_rate": 433.3, "rx_rate": 300.0 }
+	]
+}
+J
+AC1="$(json_load '{"ip":"192.168.1.21"}'; TEST_SSH_OUT_FILE="$AGENT_CL" do_agent_clients)"
+contains "agent_clients: 识别 agent" '"agent":true' "$AC1"
+contains "agent_clients: 统计客户端数" '"count":2' "$AC1"
 
 if [ "$FAIL" -eq 0 ]; then
 	echo "全部通过"

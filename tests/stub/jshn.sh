@@ -100,5 +100,24 @@ json_dump() {
 	printf '{%s}\n' "$(cat "$_J_DIR/content.0")"
 }
 
-json_load() { :; }
-json_get_var() { :; }
+_JSON_INPUT=""
+
+# 只解析本插件用到的顶层键：字符串值优先，其次裸数字。
+# 真实 jshn 的签名是 json_get_var <变量名> <键名>：它会设置变量，这里用 eval 复刻。
+json_load() {
+	_JSON_INPUT="$*"
+}
+
+json_get_var() {
+	local __key="$2" __val=""
+
+	[ -n "$__key" ] || __key="$1"
+
+	__val="$(printf '%s' "$_JSON_INPUT" \
+		| sed -n "s/.*\"$__key\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -n1)"
+
+	[ -n "$__val" ] || __val="$(printf '%s' "$_JSON_INPUT" \
+		| sed -n "s/.*\"$__key\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p" | head -n1)"
+
+	eval "$1=\"\$__val\""
+}

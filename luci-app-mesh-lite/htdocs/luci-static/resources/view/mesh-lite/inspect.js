@@ -7,6 +7,66 @@
 
 var callPoll = rpc.declare({ object: 'mesh-lite', method: 'poll', params: [ 'ip' ], expect: {} });
 var callAgentStatus = rpc.declare({ object: 'mesh-lite', method: 'agent_status', params: [ 'ip' ], expect: {} });
+var callAgentClients = rpc.declare({ object: 'mesh-lite', method: 'agent_clients', params: [ 'ip' ], expect: {} });
+
+function fmtNum(v, unit, digits) {
+	if (v === null || v === undefined || isNaN(v))
+		return '-';
+
+	return Number(v).toFixed(digits === undefined ? 1 : digits) + (unit || '');
+}
+
+/* 客户端明细：只展示信号与速率（不拉厂商/品牌库）。空字段一律显示 '-'。 */
+function renderAgentClients(ac) {
+	var parsed = null;
+
+	try {
+		parsed = JSON.parse((ac && ac.clients_json) || '{}');
+	}
+	catch (e) {
+		return E('p', { 'class': 'cbi-section-descr', 'style': 'color:#c62828' },
+			_('Agent returned unparsable client data.'));
+	}
+
+	var list = (parsed && parsed.clients) || [];
+
+	if (!list.length)
+		return E('p', { 'class': 'cbi-section-descr' }, _('No wireless clients reported by the agent.'));
+
+	/* 弱信号排前面：这才是要看的。 */
+	list.sort(function(a, b) {
+		var ra = (a.rssi === null || a.rssi === undefined) ? 999 : a.rssi;
+		var rb = (b.rssi === null || b.rssi === undefined) ? 999 : b.rssi;
+
+		return ra - rb;
+	});
+
+	var rows = [E('tr', { 'class': 'tr table-titles' }, [
+		E('th', { 'class': 'th' }, _('Client')),
+		E('th', { 'class': 'th' }, _('IP')),
+		E('th', { 'class': 'th' }, _('SSID')),
+		E('th', { 'class': 'th' }, _('Band')),
+		E('th', { 'class': 'th' }, _('Signal')),
+		E('th', { 'class': 'th' }, _('Rate Tx/Rx')),
+		E('th', { 'class': 'th' }, _('Live Tx/Rx'))
+	])];
+
+	list.forEach(function(c) {
+		var name = c.hostname || c.mac || '-';
+
+		rows.push(E('tr', { 'class': 'tr' }, [
+			E('td', { 'class': 'td' }, name),
+			E('td', { 'class': 'td' }, c.ip || '-'),
+			E('td', { 'class': 'td' }, c.ssid || '-'),
+			E('td', { 'class': 'td' }, c.band || '-'),
+			E('td', { 'class': 'td' }, fmtNum(c.rssi, ' dBm', 0)),
+			E('td', { 'class': 'td' }, fmtNum(c.tx_rate, '', 1) + ' / ' + fmtNum(c.rx_rate, '', 1) + ' Mbps'),
+			E('td', { 'class': 'td' }, fmtNum(c.tx_speed, '', 1) + ' / ' + fmtNum(c.rx_speed, '', 1) + ' Mbps')
+		]));
+	});
+
+	return E('table', { 'class': 'table' }, rows);
+}
 
 function expected() {
 	var ssid = (uci.get('mesh_lite', 'profile', 'ssid') || '').trim();
@@ -103,6 +163,14 @@ return view.extend({
 					'style': 'color:#2e7d32'
 				}, _('mesh-lite-agent: %s client(s), config version %s').format(
 					ag.clients_total || 0, ag.config_ver || '-')));
+			}
+
+			var acl = res.agentClients;
+
+			if (acl && acl.ok === true && acl.agent === true) {
+				box.appendChild(E('h4', { 'style': 'margin:14px 0 6px' },
+					_('Clients (%d)').format(acl.count || 0)));
+				box.appendChild(renderAgentClients(acl));
 			}
 
 			var nodeDiff = 0;
@@ -214,11 +282,15 @@ return view.extend({
 				}),
 				callAgentStatus(ip).catch(function() {
 					return { ok: false, agent: false };
+				}),
+				callAgentClients(ip).catch(function() {
+					return { ok: false, agent: false };
 				})
 			]).then(function(r) {
 				var res = r[0] || { ok: false, error: _('No response') };
 
 				res.agentInfo = r[1] || null;
+				res.agentClients = r[2] || null;
 				self.results[ip] = res;
 				self.renderResults();
 				return step();

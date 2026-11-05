@@ -740,3 +740,39 @@ msgstr "%s：已关闭密码登录。"
 
 msgid "%s: hardening failed (%s)"
 msgstr "%s：加固失败（%s）"
+
+msgid "Agent returned unparsable client data."
+msgstr "代理返回的客户端数据无法解析。"
+
+msgid "Client"
+msgstr "客户端"
+
+msgid "Clients (%d)"
+msgstr "客户端（%d）"
+
+msgid "Config version: %s (in sync)"
+msgstr "配置版本：%s（一致）"
+
+msgid "Config version: expected %s, AP reports %s (out of sync)"
+msgstr "配置版本：期望 %s，AP 报告 %s（不一致）"
+
+msgid "Live Tx/Rx"
+msgstr "实时 发/收"
+
+msgid "No wireless clients reported by the agent."
+msgstr "代理未报告任何无线客户端。"
+
+msgid "Rate Tx/Rx"
+msgstr "速率 发/收"
+
+msgid "Signal"
+msgstr "信号"
+
+msgid "Template saved and pushed to %d AP(s), config version %s."
+msgstr "模板已保存并推送到 %d 台 AP，配置版本 %s。"
+
+msgid "mesh-lite-agent: %s client(s), config version %s"
+msgstr "mesh-lite-agent：%s 个客户端，配置版本 %s"
+
+msgid "wifi reload failed"
+msgstr "无线重载失败"

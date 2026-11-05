@@ -285,7 +285,7 @@ function payload_hostapd_config() {
 		}
 	}
 
-	return { ok: true, ifaces: out };
+	return { ok: true, protocol: PROTOCOL, ifaces: out };
 }
 
 function payload_clients() {
@@ -330,6 +330,7 @@ function payload_clients() {
 
 	return {
 		ok: true,
+		protocol: PROTOCOL,
 		ifaces: ifaces,
 		clients: clients,
 	};

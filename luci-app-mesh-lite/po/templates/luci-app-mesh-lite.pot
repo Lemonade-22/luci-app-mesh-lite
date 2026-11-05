@@ -738,3 +738,39 @@ msgstr ""
 
 msgid "%s: hardening failed (%s)"
 msgstr ""
+
+msgid "Agent returned unparsable client data."
+msgstr ""
+
+msgid "Client"
+msgstr ""
+
+msgid "Clients (%d)"
+msgstr ""
+
+msgid "Config version: %s (in sync)"
+msgstr ""
+
+msgid "Config version: expected %s, AP reports %s (out of sync)"
+msgstr ""
+
+msgid "Live Tx/Rx"
+msgstr ""
+
+msgid "No wireless clients reported by the agent."
+msgstr ""
+
+msgid "Rate Tx/Rx"
+msgstr ""
+
+msgid "Signal"
+msgstr ""
+
+msgid "Template saved and pushed to %d AP(s), config version %s."
+msgstr ""
+
+msgid "mesh-lite-agent: %s client(s), config version %s"
+msgstr ""
+
+msgid "wifi reload failed"
+msgstr ""

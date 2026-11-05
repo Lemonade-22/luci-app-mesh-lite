@@ -151,6 +151,6 @@ sh tests/helpers-test.sh      # 72 项通过 / 0 失败（原 56 项）
 | 阶段 | 内容 |
 |---|---|
 | ~~Phase 2~~ | ~~实现 `mesh-lite-agent`（ucode，只读），按 `docs/AGENT-CONTRACT.md`~~ **已完成**：独立包 `mesh-lite-agent`，37 项静态契约测试；`agent_status` 做协议校验与回退，巡检页已展示客户端数与版本 |
-| Phase 2.5 | 巡检页展示客户端明细（信号/速率/厂商），AP 离线时自动退回 poll 并标注 |
+| Phase 2.5 | 巡检页展示客户端明细（信号/速率），AP 离线时自动退回 poll 并标注 — **已完成**：`agent_clients` 接口 + 明细表（信号、协商速率、实时速率），不做厂商识别 |
 | Phase 3 | 可选模块评估：访客网络、应用管控、BTM 引导（需先改设计边界） |
-| 常规 | 真机验证、po 补新增 msgid、README/STATUS 同步 |
+| 常规 | 真机验证、README/STATUS 同步 — README/STATUS/i18n 已同步 |
