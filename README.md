@@ -201,6 +201,10 @@ sh tests/helpers-test.sh        # 72 unit tests with command stubs
 sh tests/agent-test.sh          # 37 static contract checks for the optional agent
 sh tests/po-test.sh             # every UI string has a translation entry
 
+# runtime smoke test for the agent: needs a locally built ucode + ubusd
+# (build steps in docs/AGENT-CONTRACT.md 9.6); run as root on Linux/WSL
+bash tests/agent-smoke.sh
+
 # build both formats locally with the official OpenWrt SDK
 bash Scripts/ci-build.sh ipk   https://downloads.openwrt.org/releases/24.10.0/targets/x86/64/
 bash Scripts/ci-build.sh apk   https://downloads.openwrt.org/snapshots/targets/x86/64/
