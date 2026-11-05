@@ -1,0 +1,2 @@
+config agent 'agent'
+	option enabled '1'

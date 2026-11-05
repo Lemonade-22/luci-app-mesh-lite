@@ -963,8 +963,10 @@ do_harden() {
 
 # 可选协作代理：AP 上若装了 mesh-lite-agent，就能直接拿到结构化状态，
 # 不必解析行式文本。没装时返回 agent=0，上层自动退回 poll。
+AGENT_PROTO="1"
+
 do_agent_status() {
-	local ip="" out=""
+	local ip="" out="" proto="" cv="" ct=""
 
 	json_get_var ip ip
 
@@ -974,12 +976,26 @@ do_agent_status() {
 
 	out="$(ssh_cred_run "$ip" root "ubus call $AGENT_OBJ status 2>/dev/null")"
 
+	proto="$(printf '%s' "$out" | sed -n 's/.*"protocol"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n1)"
+	cv="$(printf '%s' "$out" | sed -n 's/.*"config_ver"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+	ct="$(printf '%s' "$out" | sed -n 's/.*"clients_total"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n1)"
+
 	json_init
 	json_add_string ip "$ip"
-	if [ -n "$out" ] && printf '%s' "$out" | grep -q '"clients"\|"version"'; then
+
+	if [ "$proto" = "$AGENT_PROTO" ]; then
 		json_add_boolean ok 1
 		json_add_boolean agent 1
+		json_add_int protocol "$proto"
+		json_add_string config_ver "$cv"
+		json_add_int clients_total "${ct:-0}"
 		json_add_string status_json "$out"
+	elif [ -n "$out" ]; then
+		# 有响应但协议不认识：宁可退回文本巡检，也不猜字段含义。
+		json_add_boolean ok 0
+		json_add_boolean agent 0
+		json_add_string error "agent protocol mismatch"
+		json_add_string detail "expected ${AGENT_PROTO}, got ${proto:-none}"
 	else
 		json_add_boolean ok 0
 		json_add_boolean agent 0

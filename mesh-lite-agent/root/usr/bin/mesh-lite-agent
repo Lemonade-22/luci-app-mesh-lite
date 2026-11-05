@@ -1,0 +1,415 @@
+#!/usr/bin/ucode
+// SPDX-License-Identifier: Apache-2.0
+//
+// mesh-lite-agent - read-only observer for luci-app-mesh-lite.
+//
+// Hard rules (see docs/AGENT-CONTRACT.md):
+//   1. read-only: never write UCI, never reload wifi, never touch /etc/config/*
+//   2. no credentials: never receives, stores or returns any Wi-Fi key
+//   3. optional: if it dies, the AC falls back to the SSH text poll
+//
+// ubus object: mesh-lite-agent
+// methods:     status / clients / hostapd_config
+
+'use strict';
+
+import * as ubus from "ubus";
+import * as uloop from "uloop";
+import * as fs from "fs";
+import * as uci from "uci";
+
+const PROTOCOL = 1;
+const AGENT_VERSION = "1.0.0";
+
+// 与 Phase 1 的收敛标记同源，不要另立一套。
+const VER_FILE = "/etc/mesh-lite.ver";
+
+// 采样间隔：为「实时速率」准备两次字节计数采样点。
+const SAMPLE_INTERVAL = 5000;
+const MAX_CLIENTS = 256;
+
+let conn = null;
+let started_at = time();
+
+// mac(去分隔符) -> { ts, rx, tx }，用于速率差分
+let speed_state = {};
+
+// ---------------------------------------------------------------- helpers --
+
+function cmd_output(cmd) {
+	let f = fs.popen(cmd, "r");
+
+	if (!f)
+		return "";
+
+	let out = f.read("all");
+
+	f.close();
+
+	return out ?? "";
+}
+
+function read_text(path, fallback) {
+	try {
+		let v = fs.readfile(path);
+
+		return v != null ? v : (fallback ?? "");
+	}
+	catch (e) {
+		return fallback ?? "";
+	}
+}
+
+function macnorm(m) {
+	return lc(replace(m ?? "", /[^0-9a-fA-F]/g, ""));
+}
+
+// 只读地创建 UCI 游标：不调用 set/commit/delete。
+function uci_read(config) {
+	let c = uci.cursor();
+
+	try {
+		c.load(config);
+	}
+	catch (e) {
+		return null;
+	}
+
+	return c;
+}
+
+// 远端 ubus 调用失败不应让整个请求 500，统一吞掉并返回 null。
+function call_ubus(obj, method, args) {
+	if (!conn)
+		return null;
+
+	try {
+		return conn.call(obj, method, args ?? {});
+	}
+	catch (e) {
+		return null;
+	}
+}
+
+// ------------------------------------------------------------ wifi state --
+
+function freq_band(f) {
+	f = int(f) ?? 0;
+
+	if (f >= 2400 && f < 2500)
+		return "2g";
+	if (f >= 4900 && f < 5900)
+		return "5g";
+	if (f >= 5925 && f < 7125)
+		return "6g";
+
+	return "?";
+}
+
+// 接口清单来自 netifd 的实时状态，而不是 UCI 模板，避免把「配置了但没起来」算进来。
+function wifi_ifaces() {
+	let out = [];
+	let ws = call_ubus("network.wireless", "status") ?? {};
+
+	for (let rname, r in ws) {
+		let band = r?.config?.band ?? "";
+
+		for (let ifc in r?.interfaces ?? []) {
+			if (!ifc.ifname)
+				continue;
+
+			push(out, {
+				ifname: ifc.ifname,
+				ssid: ifc.config?.ssid ?? "",
+				band: band,
+				up: ifc.config?.disabled != true,
+			});
+		}
+	}
+
+	return out;
+}
+
+// 每个站点的累计收发字节。iw 的 station dump 是各驱动通用来源。
+function station_bytes(ifname) {
+	let out = {};
+	let data = cmd_output(sprintf("iw dev %s station dump 2>/dev/null", ifname));
+	let mac = null, rx = 0, tx = 0;
+
+	for (let line in split(data, "\n")) {
+		let t = trim(line);
+
+		if (substr(t, 0, 8) == "Station ") {
+			if (mac)
+				out[mac] = { rx, tx };
+
+			mac = macnorm(substr(t, 8, 17));
+			rx = 0;
+			tx = 0;
+		}
+		else if (mac && substr(t, 0, 9) == "rx bytes:") {
+			rx = int(trim(substr(t, 9))) ?? 0;
+		}
+		else if (mac && substr(t, 0, 9) == "tx bytes:") {
+			tx = int(trim(substr(t, 9))) ?? 0;
+		}
+	}
+
+	if (mac)
+		out[mac] = { rx, tx };
+
+	return out;
+}
+
+// 速率 = 两次采样的字节差 × 8 / 时间 / 1e6（Mbps）。
+// 注意必须用浮点字面量，否则 ucode 整数相除会把 <1 Mbps 的速率截成 0。
+function speeds_for(mn, b) {
+	let now = time();
+	let prev = speed_state[mn];
+	let r = { rx: null, tx: null };
+
+	if (b && prev && now > prev.ts) {
+		let dt = now - prev.ts;
+
+		if (b.rx >= prev.rx)
+			r.rx = (b.rx - prev.rx) * 8.0 / dt / 1000000;
+		if (b.tx >= prev.tx)
+			r.tx = (b.tx - prev.tx) * 8.0 / dt / 1000000;
+	}
+
+	if (b)
+		speed_state[mn] = { ts: now, rx: b.rx, tx: b.tx };
+
+	return r;
+}
+
+function dhcp_leases() {
+	let out = {};
+	let data = read_text("/tmp/dhcp.leases", "");
+
+	for (let line in split(data, "\n")) {
+		let f = split(trim(line), " ");
+
+		if (length(f) < 4)
+			continue;
+
+		out[macnorm(f[1])] = {
+			ip: (f[2] == "*" || f[2] == "0.0.0.0") ? "" : f[2],
+			hostname: (f[3] == "*") ? "" : f[3],
+		};
+	}
+
+	return out;
+}
+
+// --------------------------------------------------------------- payloads --
+
+function payload_status() {
+	let dev = "br-lan";
+	let st = call_ubus("network.interface.lan", "status");
+	let brdev = st?.device ?? st?.l3_device;
+
+	if (brdev)
+		dev = brdev;
+
+	let mac = trim(read_text(sprintf("/sys/class/net/%s/address", dev), ""));
+	let ifaces = wifi_ifaces();
+	let total = 0;
+
+	for (let it in ifaces) {
+		let res = call_ubus("hostapd." + it.ifname, "get_clients");
+
+		total += length(keys(res?.clients ?? {}));
+	}
+
+	let up_raw = split(read_text("/proc/uptime", "0"), ".");
+	let up = int(trim(up_raw[0])) ?? 0;
+
+	return {
+		ok: true,
+		protocol: PROTOCOL,
+		version: AGENT_VERSION,
+		hostname: trim(read_text("/proc/sys/kernel/hostname", "OpenWrt")),
+		mac: mac,
+		ip: st?.["ipv4-address"]?.[0]?.address ?? "",
+		model: trim(read_text("/tmp/sysinfo/model", "")),
+		uptime: up,
+		config_ver: trim(read_text(VER_FILE, "")),
+		started_at: started_at,
+		clients_total: total,
+		ifaces: ifaces,
+	};
+}
+
+function payload_hostapd_config() {
+	let out = [];
+	let ws = call_ubus("network.wireless", "status") ?? {};
+	let ucfg = uci_read("wireless");
+
+	for (let rname, r in ws) {
+		for (let ifc in r?.interfaces ?? []) {
+			let ifname = ifc.ifname;
+
+			if (!ifname)
+				continue;
+
+			// 取落盘的 AP 配置：这是 netifd 实际应用过的，不是 mesh_lite 模板。
+			let sid = null, found = null;
+
+			if (ucfg) {
+				ucfg.foreach("wireless", "wifi-iface", function(s) {
+					if (found)
+						return;
+
+					if ((s.device ?? "") == (ifc.section ?? "") ||
+					    (s.device ?? "") == (rname ?? "")) {
+						if (s.mode == "ap" || (s.mode ?? "") == "") {
+							sid = s[".name"];
+							found = s;
+						}
+					}
+				});
+			}
+
+			push(out, {
+				ifname: ifname,
+				section: sid ?? ifc.section ?? "",
+				ssid: ifc.config?.ssid ?? "",
+				ieee80211r: found?.ieee80211r ?? "",
+				mobility_domain: found?.mobility_domain ?? "",
+				ieee80211k: found?.ieee80211k ?? "",
+				bss_transition: found?.bss_transition ?? "",
+				ft_over_ds: found?.ft_over_ds ?? "",
+				ft_psk_generate_local: found?.ft_psk_generate_local ?? "",
+			});
+		}
+	}
+
+	return { ok: true, ifaces: out };
+}
+
+function payload_clients() {
+	let leases = dhcp_leases();
+	let ifaces = wifi_ifaces();
+	let clients = [];
+
+	for (let it in ifaces) {
+		let res = call_ubus("hostapd." + it.ifname, "get_clients");
+		let list = res?.clients ?? {};
+
+		if (length(keys(list)) == 0)
+			continue;
+
+		let bytes = station_bytes(it.ifname);
+
+		for (let mac, ci in list) {
+			if (length(clients) >= MAX_CLIENTS)
+				break;
+
+			let mn = macnorm(mac);
+			let sp = speeds_for(mn, bytes[mn]);
+			let lease = leases[mn] ?? {};
+
+			push(clients, {
+				mac: uc(mac),
+				ip: lease.ip ?? "",
+				hostname: lease.hostname ?? "",
+				ifname: it.ifname,
+				ssid: it.ssid,
+				band: it.band || freq_band(res?.freq),
+				rssi: ci.signal ?? null,
+				connected_time: ci.connected_time ?? null,
+				// hostapd 的 rate 单位是 100 kbit/s
+				tx_rate: ci.rate?.tx != null ? ci.rate.tx / 100000.0 : null,
+				rx_rate: ci.rate?.rx != null ? ci.rate.rx / 100000.0 : null,
+				rx_speed: sp.rx,
+				tx_speed: sp.tx,
+			});
+		}
+	}
+
+	return {
+		ok: true,
+		ifaces: ifaces,
+		clients: clients,
+	};
+}
+
+// 保活采样：让 clients 请求随时能算出速率，而不是第一次请求永远拿到 null。
+function sample_tick() {
+	for (let it in wifi_ifaces()) {
+		let bytes = station_bytes(it.ifname);
+		let now = time();
+
+		for (let mn, b in bytes) {
+			let prev = speed_state[mn];
+
+			if (prev && now > prev.ts) {
+				// 只在 tick 里更新采样点，请求侧只读；避免两次请求间隔过短导致速率失真
+				speed_state[mn] = { ts: now, rx: b.rx, tx: b.tx };
+			}
+			else if (!prev) {
+				speed_state[mn] = { ts: now, rx: b.rx, tx: b.tx };
+			}
+		}
+	}
+
+	// 清理已离线的终端，防止 map 无限增长
+	let seen = {};
+
+	for (let it in wifi_ifaces()) {
+		let res = call_ubus("hostapd." + it.ifname, "get_clients");
+
+		for (let mac in keys(res?.clients ?? {}))
+			seen[macnorm(mac)] = true;
+	}
+
+	for (let mn in keys(speed_state))
+		if (!seen[mn])
+			delete speed_state[mn];
+}
+
+function safe(fn, req) {
+	try {
+		return fn(req);
+	}
+	catch (e) {
+		return { ok: false, error: "internal error: " + e };
+	}
+}
+
+// ------------------------------------------------------------------ entry --
+
+function main() {
+	conn = ubus.connect();
+
+	if (!conn) {
+		printf("mesh-lite-agent: ubus connect failed\n");
+		exit(1);
+	}
+
+	uloop.init();
+
+	conn.publish("mesh-lite-agent", {
+		status: {
+			args: {},
+			call: function(req) { return safe(payload_status, req); },
+		},
+		clients: {
+			args: {},
+			call: function(req) { return safe(payload_clients, req); },
+		},
+		hostapd_config: {
+			args: {},
+			call: function(req) { return safe(payload_hostapd_config, req); },
+		},
+	});
+
+	uloop.interval(SAMPLE_INTERVAL, sample_tick);
+
+	printf("mesh-lite-agent: started protocol=%d version=%s\n", PROTOCOL, AGENT_VERSION);
+
+	uloop.run();
+}
+
+main();

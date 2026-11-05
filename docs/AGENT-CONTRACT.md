@@ -1,6 +1,8 @@
-# mesh-lite-agent 契约（Phase 2 设计，尚未实现）
+# mesh-lite-agent 契约与实现说明
 
-> 状态：已定契约，代码未写。`rpcd` 侧已有 `agent_status` 探测与回退。
+> 状态：**已实现**（v1.0.0，`mesh-lite-agent` 独立包，`root/usr/bin/mesh-lite-agent`）。
+> `rpcd` 侧 `agent_status` 已完成探测、协议校验与回退；巡检页已消费它的结构化数据。
+> 与初版契约的差异集中在第 9 节，请以第 9 节为准。
 > 目标：吸收 wifiroam 守护进程的**可观测性**，但不吸收它的控制面。
 
 ## 1. 为什么需要它
@@ -151,3 +153,42 @@ agent_status(ip):
 3. agent 崩溃/重启不影响主机无线与 AC 操作。
 4. agent 不写任何 `uci` 配置（可用 `uci changes` 与 strace 验证）。
 5. 单测覆盖：契约字段齐全、`config_ver` 与 `/etc/mesh-lite.ver` 一致、无写操作。
+
+## 9. 实现说明（落地后的事实）
+
+### 9.1 交付物
+
+| 路径 | 说明 |
+|---|---|
+| `mesh-lite-agent/root/usr/bin/mesh-lite-agent` | ucode 守护进程，`#!/usr/bin/ucode`，约 380 行 |
+| `mesh-lite-agent/root/etc/init.d/mesh-lite-agent` | procd 服务，`respawn 3600 5 5` |
+| `mesh-lite-agent/root/etc/config/mesh-lite-agent` | `option enabled '1'`（装到 AP 才启动，AC 上可关） |
+| `mesh-lite-agent/Makefile` | `PKGARCH:=all`，依赖 ucode + ubus/uloop/fs/uci 模块，**不依赖 LuCI/rpcd** |
+| `tests/agent-test.sh` | 37 项静态契约测试 |
+
+### 9.2 与初稿契约的差异
+
+| 项 | 初稿 | 实际实现 | 原因 |
+|---|---|---|---|
+| `hostapd_config` 数据源 | `hostapd get_config`（ubus） | 读 `/etc/config/wireless` 的 `wifi-iface` | hostapd 的 ubus 对象没有稳定暴露 `get_config`；UCI 里是 netifd 实际应用后的落盘值，比模板可信。运行态核对仍由 AC 侧 `hostapd_cli` 负责 |
+| `rx_speed` / `tx_speed` | 采集两次差分 | 相同，但采样点由 agent 内 5 秒 tick 维护 | 请求侧只读采样点，避免两次请求间隔过短把速率算飞 |
+| `status.ifaces` | 未列 | 增加 `ifaces`（ifname/ssid/band/up） | AC 侧渲染客户端归属要用 |
+| 协议校验 | 未提 | `protocol=1` 不匹配即判为不可用并回退 | 宁可退回文本巡检，也不猜字段含义 |
+
+### 9.3 已知限制
+
+- **真机未验证**：仓库环境没有 ucode，只能做静态契约测试。首次上机需确认
+  `ubus call mesh-lite-agent status` 的返回与 §4 一致。
+- 首次请求的 `rx_speed`/`tx_speed` 必为 `null`（需要至少两个采样点，约 5–10 秒后才有值）。
+- `iw station dump` 依赖 `iw` 包；未装时速率字段为 `null`，其余字段不受影响。
+- `mac` 取 `br-lan` 的地址；LAN 不是 `br-lan` 命名时按 `network.interface.lan` 的
+  `device`/`l3_device` 回退，再退到 `br-lan`。
+
+### 9.4 如何验证只读
+
+```sh
+sh tests/agent-test.sh          # 禁止 UCI 写、wifi reload、写文件、密码、ssh
+# 真机上：
+uci changes                     # agent 运行前后应无新增
+ubus call mesh-lite-agent status
+```
