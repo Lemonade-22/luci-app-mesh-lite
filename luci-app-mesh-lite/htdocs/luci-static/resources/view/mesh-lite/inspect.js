@@ -6,6 +6,7 @@
 'require mesh-lite.common as mc';
 
 var callPoll = rpc.declare({ object: 'mesh-lite', method: 'poll', params: [ 'ip' ], expect: {} });
+var callAgentStatus = rpc.declare({ object: 'mesh-lite', method: 'agent_status', params: [ 'ip' ], expect: {} });
 
 function expected() {
 	var ssid = (uci.get('mesh_lite', 'profile', 'ssid') || '').trim();
@@ -92,6 +93,17 @@ return view.extend({
 
 			box.appendChild(E('p', { 'class': 'cbi-section-descr' },
 				_('Hostname: %s · uptime %s s').format(res.hostname || '-', res.uptime || '-')));
+
+			/* 可选 agent：装了就用它的结构化状态，没装就静默跳过，不影响巡检。 */
+			var ag = res.agentInfo;
+
+			if (ag && ag.ok === true && ag.agent === true) {
+				box.appendChild(E('p', {
+					'class': 'cbi-section-descr',
+					'style': 'color:#2e7d32'
+				}, _('mesh-lite-agent: %s client(s), config version %s').format(
+					ag.clients_total || 0, ag.config_ver || '-')));
+			}
 
 			var nodeDiff = 0;
 
@@ -195,12 +207,19 @@ return view.extend({
 
 			self.setProgress(_('Inspecting %s (%d/%d)…').format(ip, idx, nodes.length));
 
-			return callPoll(ip).then(function(res) {
-				self.results[ip] = res || { ok: false, error: _('No response') };
-				self.renderResults();
-				return step();
-			}).catch(function(err) {
-				self.results[ip] = { ok: false, error: String(err) };
+			/* 巡检与 agent 探测并行：agent 缺失/异常都不算失败，只是一条空结果。 */
+			return Promise.all([
+				callPoll(ip).catch(function(err) {
+					return { ok: false, error: String(err) };
+				}),
+				callAgentStatus(ip).catch(function() {
+					return { ok: false, agent: false };
+				})
+			]).then(function(r) {
+				var res = r[0] || { ok: false, error: _('No response') };
+
+				res.agentInfo = r[1] || null;
+				self.results[ip] = res;
 				self.renderResults();
 				return step();
 			});

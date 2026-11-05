@@ -39,6 +39,10 @@ configuration glue that OpenWrt lacks.
   `from="LAN"` restriction, optional disabling of password login on an AP.
 - **Architecture independent** — LuCI JS + JSON + one POSIX shell rpcd plugin. `Architecture: all`.
 - **Bilingual** — English is the source language; install `luci-i18n-mesh-lite-zh-cn` for the Chinese UI.
+- **Optional read-only agent** — install `mesh-lite-agent` on an AP and inspection returns structured
+  state (clients, RSSI, rates, config version) in one call instead of parsing SSH text. No agent?
+  Everything falls back to the SSH poll, unchanged. The agent never writes configuration and
+  never handles credentials.
 
 ---
 
@@ -51,6 +55,7 @@ configuration glue that OpenWrt lacks.
 | **full wpad** | `wpad-openssl` / `wpad-wolfssl` / `wpad-mbedtls`. The default `wpad-basic` has no 802.11r; the Overview page detects this and reports it |
 | `sshpass` (optional) | Needed to automate the first password-based authorization |
 | `timeout` (optional) | Used to cap SSH calls; without it a dead AP can block the request |
+| `mesh-lite-agent` (optional) | Install on APs you want to observe in structured form. Pulls in `ucode`; not needed for the core workflow |
 | firewall | Works with both fw3 and fw4 — the app installs **no firewall rules** |
 
 ---
@@ -169,7 +174,8 @@ LuCI pages ── ubus ── rpcd plugin              dropbear + authorized_key
 # local checks (no OpenWrt device needed)
 sh -n luci-app-mesh-lite/root/usr/libexec/rpcd/mesh-lite
 bash -n Scripts/ci-build.sh
-sh tests/helpers-test.sh        # 56 unit tests with command stubs
+sh tests/helpers-test.sh        # 72 unit tests with command stubs
+sh tests/agent-test.sh          # 37 static contract checks for the optional agent
 
 # build both formats locally with the official OpenWrt SDK
 bash Scripts/ci-build.sh ipk   https://downloads.openwrt.org/releases/24.10.0/targets/x86/64/

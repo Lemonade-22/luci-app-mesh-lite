@@ -96,6 +96,7 @@
 - 真实 hostapd 的 `get_config` 输出格式（不同 wpad 版本可能有差异）；
 - `iwinfo` 输出格式（部分平台无 Tx-Power 行）；
 - SSH 到真实 AP 的授权与下发（需要 sshpass 与真机）；
+- `mesh-lite-agent` 在真机上的 ubus 返回、速率采样与只读性（本地无 ucode，只做了 `tests/agent-test.sh` 静态契约测试）；
 - 任何真机行为。
 
 ---
@@ -118,7 +119,9 @@
 
 | 阶段 | 内容 |
 |---|---|
-| **待办** | 真机验证（LuCI 交互、hostapd 回读、SSH 授权与下发）、CI 首次构建、发布 |
+| **融合 Phase 1（已完成）** | 收敛协议 `config_ver`、巡检字段修复、SSH 层加固、MD 单一来源；详见 `docs/FUSION-PHASE1.md` |
+| **融合 Phase 2（已完成）** | 可选只读 agent（独立包 `mesh-lite-agent`）；详见 `docs/AGENT-CONTRACT.md` |
+| **待办** | 真机验证（LuCI 交互、hostapd 回读、SSH 授权与下发、agent 的 ubus 返回）、CI 首次构建、发布 |
 
 ---
 

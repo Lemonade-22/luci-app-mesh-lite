@@ -66,6 +66,16 @@ REPO_ROOT="${GITHUB_WORKSPACE:-$PWD/../../..}"
 cp -a "${REPO_ROOT}/${PKG}" "package/custom/${PKG}"
 rm -rf "package/custom/${PKG}/.git"
 
+# Optional companion package: the read-only agent for APs. It has no LuCI
+# dependency, so it can be installed on an AP that only needs to be observed.
+AGENT_PKG="mesh-lite-agent"
+if [ -d "${REPO_ROOT}/${AGENT_PKG}" ]; then
+	cp -a "${REPO_ROOT}/${AGENT_PKG}" "package/custom/${AGENT_PKG}"
+	rm -rf "package/custom/${AGENT_PKG}/.git"
+	chmod +x "package/custom/${AGENT_PKG}/root/usr/bin/mesh-lite-agent" || true
+	chmod +x "package/custom/${AGENT_PKG}/root/etc/init.d/mesh-lite-agent" || true
+fi
+
 # Defensive: a Windows checkout may lose the executable bit; the rpcd plugin
 # and the uci-defaults script must both be executable on the device.
 find "package/custom/${PKG}" -type f \
@@ -79,11 +89,17 @@ if ! make "package/custom/${PKG}/compile" -j"$(nproc)" V=s; then
 	make "package/custom/${PKG}/compile" -j1 V=s
 fi
 
+if [ -d "package/custom/${AGENT_PKG}" ]; then
+	log "Building ${AGENT_PKG}"
+	make "package/custom/${AGENT_PKG}/compile" -j"$(nproc)" V=s \
+		|| make "package/custom/${AGENT_PKG}/compile" -j1 V=s
+fi
+
 # --------------------------------------------------------------- collect -----
 log "Collecting ${FORMAT} artifacts"
 # luci.mk splits translations into their own luci-i18n-* packages, so the
 # Simplified Chinese UI only works when that package is published too.
-find bin -type f \( -name "${PKG}*" -o -name "luci-i18n-mesh-lite*" \) -print0 \
+find bin -type f \( -name "${PKG}*" -o -name "luci-i18n-mesh-lite*" -o -name "${AGENT_PKG}*" \) -print0 \
 	| while IFS= read -r -d '' f; do
 		case "$f" in
 			*.ipk|*.apk) cp -v "$f" "$OUT"/ ;;
